@@ -9,7 +9,7 @@ contract Counter is ERC20 {
     constructor() ERC20("Counter", "CNT") {
         number = 0;
     }
-    
+
     function setNumber(uint256 newNumber) public {
         number = newNumber;
     }

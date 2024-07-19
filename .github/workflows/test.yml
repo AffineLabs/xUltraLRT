@@ -25,6 +25,9 @@ jobs:
         with:
           version: nightly
 
+      - name: Install yarn dependencies, and compile contracts
+        run: yarn --frozen-lockfile && yarn build
+
       - name: Show Forge version
         run: |
           forge --version
