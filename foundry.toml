@@ -1,6 +1,10 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib"]
+block_timestamp = 1
+verbosity = 3
+solc_version = '0.8.20'
+optimizer_runs = 0
+libs = ["lib", "node_modules"]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,0 +1,17 @@
+{
+  "name": "ultraLRT-xerc20",
+  "version": "1.0.0",
+  "description": "Affine omnichain  ultraLRT",
+  "main": "index.js",
+  "repository": "git@github.com:AffineLabs/ultraLRT-xerc20.git",
+  "author": "maruf <maruf@tryalpine.com>",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2"
+  }
+}
