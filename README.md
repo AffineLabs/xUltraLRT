@@ -1,13 +1,13 @@
-## Foundry
+## ULtraLRT-xERC20
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+These contracts are pulled from https://github.com/defi-wonderland/xERC20
 
-Foundry consists of:
+Commit: 77b2c6266ab07ae629517ad83ff058ad9e599a2b
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Modifications:
+
+- Make contract upgradeable via OpenZeppelin's upgradeable contracts
+- Instead of deploying full contracts, the factories will deploy OZ TransparentUpgradeableProxy
 
 ## Documentation
 
