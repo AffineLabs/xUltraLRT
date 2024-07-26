@@ -28,7 +28,16 @@ contract XUltraLRTStorage {
 
     // share price
     uint256 public sharePrice;
-    uint256 public lastPriceUpdate;
+    uint256 public lastPriceUpdateTimeStamp;
+
+    // allow native deposit
+    bool public allowNativeDeposit;
+
+    // router and domain map
+    mapping(uint256 => address) public routerMap;
+
+    // max allowed price lag
+    uint256 public maxPriceLag;
 
     // gap
     uint256[100] private __gap;
