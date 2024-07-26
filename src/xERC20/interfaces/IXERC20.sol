@@ -7,7 +7,6 @@ interface IXERC20 {
      *
      * @param _lockbox The address of the lockbox
      */
-
     event LockboxSet(address _lockbox);
 
     /**
@@ -22,19 +21,16 @@ interface IXERC20 {
     /**
      * @notice Reverts when a user with too low of a limit tries to call mint/burn
      */
-
     error IXERC20_NotHighEnoughLimits();
 
     /**
      * @notice Reverts when caller is not the factory
      */
-
     error IXERC20_NotFactory();
 
     /**
      * @notice Reverts when mint or burn value is 0
      */
-
     error IXERC20_INVALID_0_VALUE();
 
     /**
@@ -68,7 +64,6 @@ interface IXERC20 {
      *
      * @param _lockbox The address of the lockbox
      */
-
     function setLockbox(address _lockbox) external;
 
     /**
@@ -94,7 +89,6 @@ interface IXERC20 {
      * @param _bridge the bridge we are viewing the limits of
      * @return _limit The limit the bridge has
      */
-
     function burningMaxLimitOf(address _bridge) external view returns (uint256 _limit);
 
     /**
@@ -103,7 +97,6 @@ interface IXERC20 {
      * @param _minter The minter we are viewing the limits of
      * @return _limit The limit the minter has
      */
-
     function mintingCurrentLimitOf(address _minter) external view returns (uint256 _limit);
 
     /**
@@ -112,7 +105,6 @@ interface IXERC20 {
      * @param _bridge the bridge we are viewing the limits of
      * @return _limit The limit the bridge has
      */
-
     function burningCurrentLimitOf(address _bridge) external view returns (uint256 _limit);
 
     /**
@@ -121,7 +113,6 @@ interface IXERC20 {
      * @param _user The address of the user who needs tokens minted
      * @param _amount The amount of tokens being minted
      */
-
     function mint(address _user, uint256 _amount) external;
 
     /**
@@ -130,6 +121,5 @@ interface IXERC20 {
      * @param _user The address of the user who needs tokens burned
      * @param _amount The amount of tokens being burned
      */
-
     function burn(address _user, uint256 _amount) external;
 }

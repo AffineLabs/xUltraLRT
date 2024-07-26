@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.20;
 
-import { IXERC20Factory } from "../interfaces/IXERC20Factory.sol";
-import { XERC20 } from "./XERC20.sol";
-import { XERC20Lockbox } from "./XERC20Lockbox.sol";
-import { CREATE3 } from "solmate/src/utils/CREATE3.sol";
-import {
-    EnumerableSet
-} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IXERC20Factory} from "../interfaces/IXERC20Factory.sol";
+import {XERC20} from "./XERC20.sol";
+import {XERC20Lockbox} from "./XERC20Lockbox.sol";
+import {CREATE3} from "solmate/src/utils/CREATE3.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract XERC20Factory is Initializable, IXERC20Factory {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -51,10 +49,7 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _lockboxImplementation The address of the implementation contract for any new lockboxes
      * @param _xerc20Implementation The address of the implementation contract for any new xerc20s
      */
-    function initialize(
-        address _lockboxImplementation,
-        address _xerc20Implementation
-    ) public initializer {
+    function initialize(address _lockboxImplementation, address _xerc20Implementation) public initializer {
         lockboxImplementation = _lockboxImplementation;
         xerc20Implementation = _xerc20Implementation;
     }
@@ -70,7 +65,6 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _xerc20 The address of the xerc20
      */
-
     function deployXERC20(
         string memory _name,
         string memory _symbol,
@@ -79,14 +73,7 @@ contract XERC20Factory is Initializable, IXERC20Factory {
         address[] memory _bridges,
         address _proxyAdmin
     ) external returns (address _xerc20) {
-        _xerc20 = _deployXERC20(
-            _name,
-            _symbol,
-            _minterLimits,
-            _burnerLimits,
-            _bridges,
-            _proxyAdmin
-        );
+        _xerc20 = _deployXERC20(_name, _symbol, _minterLimits, _burnerLimits, _bridges, _proxyAdmin);
 
         emit XERC20Deployed(_xerc20);
     }
@@ -101,13 +88,10 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _lockbox The address of the lockbox
      */
-
-    function deployLockbox(
-        address _xerc20,
-        address _baseToken,
-        bool _isNative,
-        address _proxyAdmin
-    ) external returns (address payable _lockbox) {
+    function deployLockbox(address _xerc20, address _baseToken, bool _isNative, address _proxyAdmin)
+        external
+        returns (address payable _lockbox)
+    {
         if ((_baseToken == address(0) && !_isNative) || (_isNative && _baseToken != address(0))) {
             revert IXERC20Factory_BadTokenAddress();
         }
@@ -131,7 +115,6 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _xerc20 The address of the xerc20
      */
-
     function _deployXERC20(
         string memory _name,
         string memory _symbol,
@@ -147,18 +130,13 @@ contract XERC20Factory is Initializable, IXERC20Factory {
         bytes32 _salt = keccak256(abi.encodePacked(_name, _symbol, msg.sender));
 
         // Initialize function - sent as 3rd argument to the proxy constructor
-        bytes memory initializeBytecode = abi.encodeCall(
-            XERC20.initialize,
-            (_name, _symbol, address(this))
-        );
+        bytes memory initializeBytecode = abi.encodeCall(XERC20.initialize, (_name, _symbol, address(this)));
 
         bytes memory _creation = type(TransparentUpgradeableProxy).creationCode;
 
         // Constructor in Proxy takes (logic, admin, data)
-        bytes memory _bytecode = abi.encodePacked(
-            _creation,
-            abi.encode(xerc20Implementation, _proxyAdmin, initializeBytecode)
-        );
+        bytes memory _bytecode =
+            abi.encodePacked(_creation, abi.encode(xerc20Implementation, _proxyAdmin, initializeBytecode));
 
         _xerc20 = CREATE3.deploy(_salt, _bytecode, 0);
 
@@ -181,27 +159,20 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _lockbox The address of the lockbox
      */
-    function _deployLockbox(
-        address _xerc20,
-        address _baseToken,
-        bool _isNative,
-        address _proxyAdmin
-    ) internal returns (address payable _lockbox) {
+    function _deployLockbox(address _xerc20, address _baseToken, bool _isNative, address _proxyAdmin)
+        internal
+        returns (address payable _lockbox)
+    {
         bytes32 _salt = keccak256(abi.encodePacked(_xerc20, _baseToken, msg.sender));
 
         // Initialize function - sent as 3rd argument to the proxy constructor
-        bytes memory initializeBytecode = abi.encodeCall(
-            XERC20Lockbox.initialize,
-            (_xerc20, _baseToken, _isNative)
-        );
+        bytes memory initializeBytecode = abi.encodeCall(XERC20Lockbox.initialize, (_xerc20, _baseToken, _isNative));
 
         bytes memory _creation = type(TransparentUpgradeableProxy).creationCode;
 
         // Constructor in Proxy takes (logic, admin, data)
-        bytes memory _bytecode = abi.encodePacked(
-            _creation,
-            abi.encode(lockboxImplementation, _proxyAdmin, initializeBytecode)
-        );
+        bytes memory _bytecode =
+            abi.encodePacked(_creation, abi.encode(lockboxImplementation, _proxyAdmin, initializeBytecode));
 
         _lockbox = payable(CREATE3.deploy(_salt, _bytecode, 0));
 

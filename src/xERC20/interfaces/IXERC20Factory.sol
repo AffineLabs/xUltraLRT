@@ -7,7 +7,6 @@ interface IXERC20Factory {
      *
      * @param _xerc20 The address of the xerc20
      */
-
     event XERC20Deployed(address _xerc20);
 
     /**
@@ -15,25 +14,21 @@ interface IXERC20Factory {
      *
      * @param _lockbox The address of the lockbox
      */
-
     event LockboxDeployed(address _lockbox);
 
     /**
      * @notice Reverts when a non-owner attempts to call
      */
-
     error IXERC20Factory_NotOwner();
 
     /**
      * @notice Reverts when a lockbox is trying to be deployed from a malicious address
      */
-
     error IXERC20Factory_BadTokenAddress();
 
     /**
      * @notice Reverts when a lockbox is already deployed
      */
-
     error IXERC20Factory_LockboxAlreadyDeployed();
 
     /**
@@ -52,7 +47,6 @@ interface IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _xerc20 The address of the xerc20
      */
-
     function deployXERC20(
         string memory _name,
         string memory _symbol,
@@ -71,11 +65,7 @@ interface IXERC20Factory {
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _lockbox The address of the lockbox
      */
-
-    function deployLockbox(
-        address _xerc20,
-        address _baseToken,
-        bool _isNative,
-        address _proxyAdmin
-    ) external returns (address payable _lockbox);
+    function deployLockbox(address _xerc20, address _baseToken, bool _isNative, address _proxyAdmin)
+        external
+        returns (address payable _lockbox);
 }

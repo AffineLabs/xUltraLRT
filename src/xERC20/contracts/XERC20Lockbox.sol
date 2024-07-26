@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.20;
 
-import { IXERC20 } from "../interfaces/IXERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { IXERC20Lockbox } from "../interfaces/IXERC20Lockbox.sol";
+import {IXERC20} from "../interfaces/IXERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {IXERC20Lockbox} from "../interfaces/IXERC20Lockbox.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract XERC20Lockbox is Initializable, IXERC20Lockbox {
@@ -22,7 +22,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
     /**
      * @notice Whether the ERC20 token is the native gas token of this chain
      */
-
     bool public IS_NATIVE;
 
     /// @dev Prevents implementation contract from being initialized.
@@ -47,7 +46,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
     /**
      * @notice Deposit native tokens into the lockbox
      */
-
     function depositNative() public payable {
         if (!IS_NATIVE) revert IXERC20Lockbox_NotNative();
 
@@ -59,7 +57,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      *
      * @param _amount The amount of tokens to deposit
      */
-
     function deposit(uint256 _amount) external {
         if (IS_NATIVE) revert IXERC20Lockbox_Native();
 
@@ -72,7 +69,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      * @param _to The user to send the XERC20 to
      * @param _amount The amount of tokens to deposit
      */
-
     function depositTo(address _to, uint256 _amount) external {
         if (IS_NATIVE) revert IXERC20Lockbox_Native();
 
@@ -84,7 +80,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      *
      * @param _to The user to send the XERC20 to
      */
-
     function depositNativeTo(address _to) public payable {
         if (!IS_NATIVE) revert IXERC20Lockbox_NotNative();
 
@@ -96,7 +91,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      *
      * @param _amount The amount of tokens to withdraw
      */
-
     function withdraw(uint256 _amount) external {
         _withdraw(msg.sender, _amount);
     }
@@ -107,7 +101,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      * @param _to The user to withdraw to
      * @param _amount The amount of tokens to withdraw
      */
-
     function withdrawTo(address _to, uint256 _amount) external {
         _withdraw(_to, _amount);
     }
@@ -118,14 +111,13 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      * @param _to The user to withdraw to
      * @param _amount The amount of tokens to withdraw
      */
-
     function _withdraw(address _to, uint256 _amount) internal {
         emit Withdraw(_to, _amount);
 
         XERC20.burn(msg.sender, _amount);
 
         if (IS_NATIVE) {
-            (bool _success, ) = payable(_to).call{ value: _amount }("");
+            (bool _success,) = payable(_to).call{value: _amount}("");
             if (!_success) revert IXERC20Lockbox_WithdrawFailed();
         } else {
             ERC20.safeTransfer(_to, _amount);
@@ -138,7 +130,6 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      * @param _to The address to send the XERC20 to
      * @param _amount The amount of tokens to deposit
      */
-
     function _deposit(address _to, uint256 _amount) internal {
         if (!IS_NATIVE) {
             ERC20.safeTransferFrom(msg.sender, address(this), _amount);
