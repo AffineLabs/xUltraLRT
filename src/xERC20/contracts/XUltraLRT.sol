@@ -5,6 +5,9 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
+
 import {IMessageRecipient} from "src/interfaces/hyperlane/IMessageRecipient.sol";
 
 import {XERC20} from "./XERC20.sol";
@@ -19,6 +22,8 @@ contract XUltraLRT is
     XERC20,
     IMessageRecipient
 {
+    using SafeTransferLib for ERC20;
+
     constructor() {
         _disableInitializers();
     }
@@ -38,10 +43,26 @@ contract XUltraLRT is
         mailbox = IMailbox(_mailbox);
     }
 
+    function allowTokenDeposit() public onlyOwner {
+        tokenDepositAllowed = 1;
+    }
+
+    function disableTokenDeposit() public onlyOwner {
+        tokenDepositAllowed = 0;
+    }
+
+    function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
+        routerMap[_origin] = _router;
+    }
+
+    function setBaseAsset(address _baseAsset) public onlyOwner {
+        baseAsset = ERC20(_baseAsset);
+    }
+
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override {
         require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
         // check origin
-        require(routerMap[_origin] != address(0), "XUltraLRT: Invalid origin");
+        require(routerMap[_origin] != _sender, "XUltraLRT: Invalid origin");
         // decode message
         Message memory message = abi.decode(_message, (Message));
         // handle message
@@ -55,12 +76,28 @@ contract XUltraLRT is
         }
     }
 
-    function deposit(uint256 _amount, address receiver) public {
-        // deposit
-    }
+    function deposit(uint256 _amount, address receiver) public payable whenNotPaused onlyTokenDepositAllowed {
+        // check price lag
+        // TODO: introduce limits
+        // TODO: Add test for failed tx with native deposit.
 
-    function withdraw(uint256 _amount) public {
-        // withdraw
+        require(block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag, "XUltraLRT: Price not updated");
+        require(_amount > 0, "XUltraLRT: Invalid amount");
+        require(receiver != address(0), "XUltraLRT: Invalid receiver");
+        require(sharePrice > 0, "XUltraLRT: Invalid share price");
+
+        // deposit
+        if (address(baseAsset) == address(0)) {
+            require(msg.value == _amount, "XUltraLRT: Invalid amount");
+        } else {
+            require(msg.value == 0, "XUltraLRT: Invalid amount");
+            // transfer token
+            baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
+        }
+
+        // mint token
+        uint256 mintAmount = ((10 ** decimals()) * _amount) / sharePrice;
+        _mint(receiver, mintAmount);
     }
 
     function _updatePrice(uint256 _price, uint256 _sourceTimeStamp) internal {
@@ -101,25 +138,26 @@ contract XUltraLRT is
         returns (uint256 fees)
     {
         // transfer
-        address recipient = routerMap[_destination];
-        require(recipient != address(0), "XUltraLRT: Invalid destination");
+        bytes32 recipient = routerMap[_destination];
+        require(recipient != bytes32(0), "XUltraLRT: Invalid destination router");
         // send message to mint token on remote chain
         Message memory message = Message(MSG_TYPE.MINT, _to, _amount, 0, block.timestamp);
         bytes memory messageData = abi.encode(message);
         // dispatch message
-        fees = mailbox.quoteDispatch(_destination, bytes32(bytes20(uint160(recipient))), messageData);
+        fees = mailbox.quoteDispatch(_destination, recipient, messageData);
     }
 
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
         // transfer
-        address recipient = routerMap[_destination];
-        require(recipient != address(0), "XUltraLRT: Invalid destination");
+        bytes32 recipient = routerMap[_destination];
+        require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
         // burn token
+        // TODO: add check in case fees are low or failed.
         _burn(msg.sender, _amount);
         // send message to mint token on remote chain
         Message memory message = Message(MSG_TYPE.MINT, _to, _amount, 0, block.timestamp);
         bytes memory messageData = abi.encode(message);
         // dispatch message
-        mailbox.dispatch{value: _fees}(_destination, bytes32(bytes20(uint160(recipient))), messageData);
+        mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
     }
 }

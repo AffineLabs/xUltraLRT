@@ -2,7 +2,7 @@
 pragma solidity =0.8.20;
 
 import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 contract XUltraLRTStorage {
     // enum
@@ -30,15 +30,30 @@ contract XUltraLRTStorage {
     uint256 public sharePrice;
     uint256 public lastPriceUpdateTimeStamp;
 
-    // allow native deposit
-    bool public allowNativeDeposit;
+    // allow token deposit
+    uint256 public tokenDepositAllowed; // if base asset is address(0) then it will get native token
 
     // router and domain map
-    mapping(uint256 => address) public routerMap;
+    mapping(uint32 => bytes32) public routerMap;
 
     // max allowed price lag
     uint256 public maxPriceLag;
 
     // gap
     uint256[100] private __gap;
+
+    modifier onlyMailbox() {
+        require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
+        _;
+    }
+
+    modifier onlyRouter(uint32 _origin, bytes32 _sender) {
+        require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
+        _;
+    }
+
+    modifier onlyTokenDepositAllowed() {
+        require(tokenDepositAllowed == 1, "XUltraLRT: Token deposit not allowed");
+        _;
+    }
 }
