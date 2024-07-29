@@ -13,6 +13,8 @@ import {IMessageRecipient} from "src/interfaces/hyperlane/IMessageRecipient.sol"
 import {XERC20} from "./XERC20.sol";
 import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRTStorage} from "./XUltraLRTStorage.sol";
+import {IUltraLRT} from "src/xERC20/interfaces/IUltraLRT.sol";
+import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
 
 contract XUltraLRT is
     Initializable,
@@ -137,27 +139,66 @@ contract XUltraLRT is
         view
         returns (uint256 fees)
     {
-        // transfer
-        bytes32 recipient = routerMap[_destination];
-        require(recipient != bytes32(0), "XUltraLRT: Invalid destination router");
-        // send message to mint token on remote chain
-        Message memory message = Message(MSG_TYPE.MINT, _to, _amount, 0, block.timestamp);
-        bytes memory messageData = abi.encode(message);
+        (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
         // dispatch message
         fees = mailbox.quoteDispatch(_destination, recipient, messageData);
     }
 
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
-        // transfer
-        bytes32 recipient = routerMap[_destination];
-        require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
-        // burn token
+        (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
+        // dispatch message
         // TODO: add check in case fees are low or failed.
         _burn(msg.sender, _amount);
+        mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
+        // todo dispatch event with msg id
+    }
+
+    function _getTransferRemoteMsg(uint32 _destination, address _to, uint256 _amount)
+        internal
+        view
+        returns (bytes memory messageData, bytes32 recipient)
+    {
+        // transfer
+        recipient = routerMap[_destination];
+        require(recipient != bytes32(0), "XUltraLRT: Invalid destination router");
         // send message to mint token on remote chain
         Message memory message = Message(MSG_TYPE.MINT, _to, _amount, 0, block.timestamp);
-        bytes memory messageData = abi.encode(message);
+        messageData = abi.encode(message);
+    }
+
+    function quotePublishTokenPrice(uint32 domain) public view returns (uint256 fees) {
+        (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
-        mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
+        fees = mailbox.quoteDispatch(domain, recipient, messageData);
+    }
+    // publish token price lockbox
+
+    function publishTokenPrice(uint32 domain) public payable {
+        (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
+        // dispatch message
+        mailbox.dispatch{value: 0}(domain, recipient, messageData);
+
+        // todo dispatch event with msg id
+    }
+
+    // normalized price update msg
+    function _getPricePublishMessage(uint32 domain)
+        internal
+        view
+        returns (bytes memory messageData, bytes32 recipient)
+    {
+        recipient = routerMap[domain];
+        require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
+
+        // check if it has lockbox
+        require(lockbox != address(0), "XUltraLRT: No lockbox");
+
+        uint256 _sharePrice = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20())).getRate();
+
+        // get price per share from lockbox ba
+        // send message to mint token on remote chain
+        Message memory message =
+            Message(MSG_TYPE.PRICE_UPDATE, address(0), _sharePrice, lastPriceUpdateTimeStamp, block.timestamp);
+        messageData = abi.encode(message);
     }
 }
