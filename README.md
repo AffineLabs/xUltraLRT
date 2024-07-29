@@ -1,4 +1,4 @@
-## ULtraLRT
+## xULtraLRT
 
 These contracts are pulled from https://github.com/defi-wonderland/xERC20
 
