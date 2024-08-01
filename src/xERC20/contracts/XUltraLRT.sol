@@ -15,6 +15,7 @@ import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRTStorage} from "./XUltraLRTStorage.sol";
 import {IUltraLRT} from "src/xERC20/interfaces/IUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
+import {ISparkPool} from "src/interfaces/across/ISparkPool.sol";
 
 contract XUltraLRT is
     Initializable,
@@ -200,5 +201,40 @@ contract XUltraLRT is
         Message memory message =
             Message(MSG_TYPE.PRICE_UPDATE, address(0), _sharePrice, lastPriceUpdateTimeStamp, block.timestamp);
         messageData = abi.encode(message);
+    }
+
+    //////////////////////////// BRIDGE FUNCTIONS ////////////////////////////
+
+    function setSparkPool(address _sparkPool) public onlyOwner {
+        acrossSparkPool = _sparkPool;
+    }
+
+    function setAcrossChainIdRecipient(uint256 chainId, address recipient) public onlyOwner {
+        acrossChainIdRecipient[chainId] = recipient; // set zero address to disable
+    }
+
+    function bridgeToken(uint256 destinationChainId, uint256 amount, uint256 fees, uint32 quoteTimestamp) public {
+        // transfer
+        address recipient = acrossChainIdRecipient[destinationChainId];
+        require(recipient != address(0), "XUltraLRT: Invalid destination recipient");
+
+        // approve token
+        baseAsset.approve(address(acrossSparkPool), amount);
+
+        // bridge token
+        ISparkPool(acrossSparkPool).depositV3(
+            address(this), // depositor
+            recipient, // recipient
+            address(baseAsset), // input token
+            address(0), // output token
+            amount, // input amount
+            amount - fees, // output amount
+            destinationChainId, // destination chain id
+            address(0), // exclusive relayer
+            quoteTimestamp, // quote timestamp
+            uint32(block.timestamp) + ISparkPool(acrossSparkPool).fillDeadlineBuffer(), // fill deadline // todo check conversion
+            0, // exclusivity deadline
+            "" // message TODO: passing and handling message
+        );
     }
 }

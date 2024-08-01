@@ -39,6 +39,11 @@ contract XUltraLRTStorage {
     // max allowed price lag
     uint256 public maxPriceLag;
 
+    // spark pool
+    address public acrossSparkPool;
+    // recipient address for each chain id
+    mapping(uint256 => address) public acrossChainIdRecipient;
+
     // gap
     uint256[100] private __gap;
 
