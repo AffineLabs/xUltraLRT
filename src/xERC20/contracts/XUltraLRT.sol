@@ -218,11 +218,18 @@ contract XUltraLRT is
         address recipient = acrossChainIdRecipient[destinationChainId];
         require(recipient != address(0), "XUltraLRT: Invalid destination recipient");
 
+        // msg.value for native token
+        uint256 ethValue;
         // approve token
-        baseAsset.approve(address(acrossSparkPool), amount);
+        if(address(baseAsset) != address(0)) {
+            baseAsset.approve(address(acrossSparkPool), amount);
+        } else {
+            ethValue = amount;
+        }
+        
 
         // bridge token
-        ISparkPool(acrossSparkPool).depositV3(
+        ISparkPool(acrossSparkPool).depositV3{value: ethValue}(
             address(this), // depositor
             recipient, // recipient
             address(baseAsset), // input token
