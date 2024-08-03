@@ -27,9 +27,9 @@ contract XUltraLRT is
 {
     using SafeTransferLib for ERC20;
 
-    constructor() {
-        _disableInitializers();
-    }
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize(address _mailbox, address _governance, address _factory) public initializer {
         __Ownable_init(_governance);
@@ -65,7 +65,7 @@ contract XUltraLRT is
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override {
         require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
         // check origin
-        require(routerMap[_origin] != _sender, "XUltraLRT: Invalid origin");
+        require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
         // decode message
         Message memory message = abi.decode(_message, (Message));
         // handle message
@@ -221,12 +221,11 @@ contract XUltraLRT is
         // msg.value for native token
         uint256 ethValue;
         // approve token
-        if(address(baseAsset) != address(0)) {
+        if (address(baseAsset) != address(0)) {
             baseAsset.approve(address(acrossSparkPool), amount);
         } else {
             ethValue = amount;
         }
-        
 
         // bridge token
         ISparkPool(acrossSparkPool).depositV3{value: ethValue}(

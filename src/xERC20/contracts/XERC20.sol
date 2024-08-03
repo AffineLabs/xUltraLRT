@@ -8,7 +8,7 @@ import {ERC20PermitUpgradeable} from
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable, IXERC20, ERC20PermitUpgradeable {
+abstract contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable, IXERC20, ERC20PermitUpgradeable {
     uint256 private constant _DURATION = 1 days;
 
     address public FACTORY;
@@ -24,9 +24,9 @@ contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable, IXERC20,
 
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     /**
      * @notice Constructs the initial config of the XERC20
