@@ -15,7 +15,7 @@ import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRTStorage} from "./XUltraLRTStorage.sol";
 import {IUltraLRT} from "src/xERC20/interfaces/IUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
-import {ISparkPool} from "src/interfaces/across/ISparkPool.sol";
+import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 
 contract XUltraLRT is
     Initializable,
@@ -79,7 +79,7 @@ contract XUltraLRT is
         }
     }
 
-    function deposit(uint256 _amount, address receiver) public payable whenNotPaused onlyTokenDepositAllowed {
+    function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
         // check price lag
         // TODO: introduce limits
         // TODO: Add test for failed tx with native deposit.
@@ -88,15 +88,10 @@ contract XUltraLRT is
         require(_amount > 0, "XUltraLRT: Invalid amount");
         require(receiver != address(0), "XUltraLRT: Invalid receiver");
         require(sharePrice > 0, "XUltraLRT: Invalid share price");
+        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
 
-        // deposit
-        if (address(baseAsset) == address(0)) {
-            require(msg.value == _amount, "XUltraLRT: Invalid amount");
-        } else {
-            require(msg.value == 0, "XUltraLRT: Invalid amount");
-            // transfer token
-            baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
-        }
+        // transfer token
+        baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
 
         // mint token
         uint256 mintAmount = ((10 ** decimals()) * _amount) / sharePrice;
@@ -206,39 +201,40 @@ contract XUltraLRT is
     //////////////////////////// BRIDGE FUNCTIONS ////////////////////////////
 
     function setSparkPool(address _sparkPool) public onlyOwner {
-        acrossSparkPool = _sparkPool;
+        acrossSpokePool = _sparkPool;
     }
 
-    function setAcrossChainIdRecipient(uint256 chainId, address recipient) public onlyOwner {
-        acrossChainIdRecipient[chainId] = recipient; // set zero address to disable
+    function setAcrossChainIdRecipient(uint256 chainId, address recipient, address token) public onlyOwner {
+        require(recipient != address(0), "XUltraLRT: Invalid recipient");
+        require(token != address(0), "XUltraLRT: Invalid token");
+        acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
+    }
+
+    function resetAcrossChainIdRecipient(uint256 chainId) public onlyOwner {
+        delete acrossChainIdRecipient[chainId];
     }
 
     function bridgeToken(uint256 destinationChainId, uint256 amount, uint256 fees, uint32 quoteTimestamp) public {
         // transfer
-        address recipient = acrossChainIdRecipient[destinationChainId];
-        require(recipient != address(0), "XUltraLRT: Invalid destination recipient");
+        BridgeRecipient memory bridgeInfo = acrossChainIdRecipient[destinationChainId];
+        require(bridgeInfo.recipient != address(0), "XUltraLRT: Invalid destination recipient");
+        require(bridgeInfo.token != address(0), "XUltraLRT: Invalid destination token");
 
-        // msg.value for native token
-        uint256 ethValue;
-        // approve token
-        if (address(baseAsset) != address(0)) {
-            baseAsset.approve(address(acrossSparkPool), amount);
-        } else {
-            ethValue = amount;
-        }
-
+        // todo require a fee check for max fees threshold
+        // approve
+        baseAsset.safeApprove(address(acrossSpokePool), amount);
         // bridge token
-        ISparkPool(acrossSparkPool).depositV3{value: ethValue}(
+        ISpokePool(acrossSpokePool).depositV3(
             address(this), // depositor
-            recipient, // recipient
+            bridgeInfo.recipient, // recipient
             address(baseAsset), // input token
-            address(0), // output token
+            bridgeInfo.token, // output token
             amount, // input amount
             amount - fees, // output amount
             destinationChainId, // destination chain id
             address(0), // exclusive relayer
             quoteTimestamp, // quote timestamp
-            uint32(block.timestamp) + ISparkPool(acrossSparkPool).fillDeadlineBuffer(), // fill deadline // todo check conversion
+            uint32(block.timestamp) + ISpokePool(acrossSpokePool).fillDeadlineBuffer(), // fill deadline // todo check conversion
             0, // exclusivity deadline
             "" // message TODO: passing and handling message
         );

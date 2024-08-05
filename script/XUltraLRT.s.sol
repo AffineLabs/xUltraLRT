@@ -61,6 +61,12 @@ contract XUltraLRTScript is Script {
         vault.transferRemote{value: feeAmount}(bscTestId, 10000);
     }
 
+    function gtSep() public {
+        address deployer = _start();
+        DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
+        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100*1e18);
+    }
+
     //////////////////////////////////////////////////////////////////////////////
     /////                        BSC                                          ////
     //////////////////////////////////////////////////////////////////////////////
@@ -96,5 +102,11 @@ contract XUltraLRTScript is Script {
         uint256 feeAmount = vault.quoteTransferRemote(sepTestId, 10000);
         console2.log("fees %s", feeAmount);
         vault.transferRemote{value: feeAmount}(sepTestId, 10000);
+    }
+
+    function gtBsc() public {
+        address deployer = _start();
+        DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
+        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100*1e18);
     }
 }

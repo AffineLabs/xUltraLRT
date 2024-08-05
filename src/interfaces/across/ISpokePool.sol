@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0;
 
-interface ISparkPool {
+interface ISpokePool {
     function depositV3(
         address depositor,
         address recipient,
@@ -17,5 +17,5 @@ interface ISparkPool {
         bytes calldata message
     ) external payable;
 
-    function fillDeadlineBuffer() external view returns (uint32);
+    function fillDeadlineBuffer() external returns (uint32);
 }

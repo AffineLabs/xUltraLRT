@@ -12,8 +12,12 @@ import {IMailbox} from "../src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRT} from "../src/xERC20/contracts/XUltraLRT.sol";
 import {XUltraLRTStorage} from "../src/xERC20/contracts/XUltraLRTStorage.sol";
 
+import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
+    ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     XUltraLRT public vault;
 
     function setUp() public {
@@ -31,7 +35,7 @@ contract XUltraLRTTest is Test {
 
         uint32 blastId = 81457;
         // add domain
-        vault.setRouter(blastId, bytes32(bytes20(address(this))));
+        vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
 
         vault.transferRemote(blastId, 1e18);
 
@@ -42,7 +46,8 @@ contract XUltraLRTTest is Test {
     function testMsgReceived() public {
         uint32 blastId = 81457;
         // add domain
-        vault.setRouter(blastId, bytes32(bytes20(address(this))));
+        bytes32 sender = bytes32(uint256(uint160(address(this))));
+        vault.setRouter(blastId, sender);
 
         XUltraLRTStorage.Message memory sMsg =
             XUltraLRTStorage.Message(XUltraLRTStorage.MSG_TYPE.MINT, address(this), 1e18, 0, block.timestamp);
@@ -51,6 +56,33 @@ contract XUltraLRTTest is Test {
 
         // send message
         vm.prank(address(mailbox));
-        vault.handle(blastId, bytes32(bytes20(address(mailbox))), data);
+        vault.handle(blastId, sender, data);
+    }
+
+    function testAcrossSpokePool() public {
+        // set spokepool
+
+        ISpokePool spokePool = ISpokePool(0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5); // eth spoke pool
+
+        vault.setSparkPool(address(spokePool));
+
+        console2.log("spoke pool %s", spokePool.fillDeadlineBuffer());
+
+        console2.log("spoke pool %s", vault.acrossSpokePool());
+
+        // set base token
+        vault.setBaseAsset(address(weth));
+
+        // deal weth to the vault
+        deal(address(weth), address(vault), 1e18);
+
+        uint256 lineaChainID = 59144;
+
+        vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
+
+        console2.log("balance %s", weth.balanceOf(address(vault)));
+
+        vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
+        // assertTrue(true);
     }
 }
