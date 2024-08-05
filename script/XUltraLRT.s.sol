@@ -5,6 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 
 import {XUltraLRT} from "../src/xERC20/contracts/XUltraLRT.sol";
 import {console2} from "forge-std/console2.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {WETH} from "solmate/src/tokens/WETH.sol";
 
 contract DummyXUltraLRT is XUltraLRT {
     function testMint(address to, uint256 amount) public onlyOwner {
@@ -64,7 +66,7 @@ contract XUltraLRTScript is Script {
     function gtSep() public {
         address deployer = _start();
         DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
-        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100*1e18);
+        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -107,6 +109,76 @@ contract XUltraLRTScript is Script {
     function gtBsc() public {
         address deployer = _start();
         DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
-        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100*1e18);
+        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    /////                        BLAST                                         ////
+    //////////////////////////////////////////////////////////////////////////////
+
+    function deployBlast() public {
+        address deployer = _start();
+        // dep balance
+        console2.log("balance %s", deployer.balance);
+
+        DummyXUltraLRT vault = new DummyXUltraLRT();
+
+        address mailbox = address(0); // blast mailbox
+        vault.initialize(mailbox, deployer, address(deployer));
+    }
+
+    function blSetBridge() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
+        address recipient = 0x633dc76965e520a777378CFc6299d925B443C224;
+        address rToken = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        vault.setAcrossChainIdRecipient(sepTestId, recipient, rToken);
+    }
+
+    function blBAsset() public {
+        address deployer = _start();
+        // uint32 sepTestId = 11155111;
+        WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
+
+        // DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        // vault.setBaseAsset(address(weth));
+
+        // get weth
+        weth.deposit{value: 100000000000000}();
+    }
+
+    function blTr() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
+        WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        // transfer to vault
+        weth.transfer(address(vault), weth.balanceOf(deployer));
+    }
+
+    function blSSP() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
+        WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        vault.setSparkPool(0x5545092553Cf5Bf786e87a87192E902D50D8f022);
+    }
+
+    function blTrRemote() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
+        WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        vault.bridgeToken(sepTestId, 11000000000000000, 1000000000000000, uint32(block.timestamp));
     }
 }
