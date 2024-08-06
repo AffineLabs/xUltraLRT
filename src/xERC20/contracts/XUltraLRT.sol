@@ -4,6 +4,7 @@ pragma solidity =0.8.20;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
@@ -22,6 +23,7 @@ contract XUltraLRT is
     PausableUpgradeable,
     OwnableUpgradeable,
     XUltraLRTStorage,
+    AccessControlUpgradeable,
     XERC20,
     IMessageRecipient
 {
@@ -34,8 +36,24 @@ contract XUltraLRT is
     function initialize(address _mailbox, address _governance, address _factory) public initializer {
         __Ownable_init(_governance);
         __Pausable_init();
+        __AccessControl_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _governance);
+        _grantRole(GUARDIAN_ROLE, _governance);
+        _grantRole(HARVESTER, _governance);
+
         __XERC20_init("XUltraLRT", "XULRT", _governance, _factory);
         mailbox = IMailbox(_mailbox);
+    }
+
+    modifier onlyGuardian() {
+        require(hasRole(GUARDIAN_ROLE, msg.sender), "XUltraLRT: Not guardian");
+        _;
+    }
+
+    modifier onlyHarvester() {
+        require(hasRole(HARVESTER, msg.sender), "XUltraLRT: Not harvester");
+        _;
     }
 
     function setMaxPriceLag(uint256 _maxPriceLag) public onlyOwner {
@@ -62,8 +80,7 @@ contract XUltraLRT is
         baseAsset = ERC20(_baseAsset);
     }
 
-    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override {
-        require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
+    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override onlyMailbox {
         // check origin
         require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
         // decode message
@@ -169,12 +186,10 @@ contract XUltraLRT is
     }
     // publish token price lockbox
 
-    function publishTokenPrice(uint32 domain) public payable {
+    function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
         mailbox.dispatch{value: 0}(domain, recipient, messageData);
-
-        // todo dispatch event with msg id
     }
 
     // normalized price update msg
@@ -200,7 +215,7 @@ contract XUltraLRT is
 
     //////////////////////////// BRIDGE FUNCTIONS ////////////////////////////
 
-    function setSparkPool(address _sparkPool) public onlyOwner {
+    function setSpokePool(address _sparkPool) public onlyOwner {
         acrossSpokePool = _sparkPool;
     }
 
@@ -210,15 +225,32 @@ contract XUltraLRT is
         acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
     }
 
-    function resetAcrossChainIdRecipient(uint256 chainId) public onlyOwner {
+    function resetAcrossChainIdRecipient(uint256 chainId) public onlyHarvester {
         delete acrossChainIdRecipient[chainId];
     }
 
-    function bridgeToken(uint256 destinationChainId, uint256 amount, uint256 fees, uint32 quoteTimestamp) public {
+    function setMaxBridgeFeeBps(uint256 _maxBridgeFeeBps) public onlyOwner {
+        require(_maxBridgeFeeBps <= 10000, "XUltraLRT: Invalid bridge fee");
+        maxBridgeFeeBps = _maxBridgeFeeBps;
+    }
+
+    function bridgeToken(uint256 destinationChainId, uint256 amount, uint256 fees, uint32 quoteTimestamp)
+        public
+        onlyHarvester
+    {
         // transfer
         BridgeRecipient memory bridgeInfo = acrossChainIdRecipient[destinationChainId];
         require(bridgeInfo.recipient != address(0), "XUltraLRT: Invalid destination recipient");
         require(bridgeInfo.token != address(0), "XUltraLRT: Invalid destination token");
+        require(amount > 0, "XUltraLRT: Invalid amount");
+        require(fees >= 0, "XUltraLRT: Invalid fees");
+
+        uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / 10000;
+
+        require(fees <= maxAllowedFees, "XUltraLRT: Invalid fees");
+
+        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
+        require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");
 
         // todo require a fee check for max fees threshold
         // approve

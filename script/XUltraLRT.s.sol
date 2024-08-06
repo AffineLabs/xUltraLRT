@@ -9,11 +9,11 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
 
 contract DummyXUltraLRT is XUltraLRT {
-    function testMint(address to, uint256 amount) public onlyOwner {
+    function freeMint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
     }
 
-    function testBurn(address from, uint256 amount) public onlyOwner {
+    function freeBurn(address from, uint256 amount) public onlyOwner {
         _burn(from, amount);
     }
 }
@@ -40,7 +40,7 @@ contract XUltraLRTScript is Script {
         address mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766; // sepolia mailbox
         vault.initialize(mailbox, deployer, address(deployer));
 
-        vault.testMint(deployer, 1e18);
+        vault.freeMint(deployer, 1e18);
 
         console2.log("vault %s", address(vault));
     }
@@ -66,7 +66,7 @@ contract XUltraLRTScript is Script {
     function gtSep() public {
         address deployer = _start();
         DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
-        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
+        vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ contract XUltraLRTScript is Script {
         address mailbox = 0xF9F6F5646F478d5ab4e20B0F910C92F1CCC9Cc6D; // bsc testnet mailbox
         vault.initialize(mailbox, deployer, address(deployer));
 
-        vault.testMint(deployer, 100 * 1e18);
+        vault.freeMint(deployer, 100 * 1e18);
 
         console2.log("vault %s", address(vault));
     }
@@ -109,7 +109,7 @@ contract XUltraLRTScript is Script {
     function gtBsc() public {
         address deployer = _start();
         DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
-        vault.testMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
+        vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -169,13 +169,88 @@ contract XUltraLRTScript is Script {
 
         DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
 
-        vault.setSparkPool(0x5545092553Cf5Bf786e87a87192E902D50D8f022);
+        // vault.setSparkPool(0x5545092553Cf5Bf786e87a87192E902D50D8f022); old implementation
+        // vault.setSpokePool(0x5545092553Cf5Bf786e87a87192E902D50D8f022);
     }
 
     function blTrRemote() public {
         address deployer = _start();
         uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        vault.bridgeToken(sepTestId, 11000000000000000, 1000000000000000, uint32(block.timestamp));
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    /////                                     BASE                                     ////
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    //   {
+    //         "originChainId": 84532,
+    //         "originToken": "0x4200000000000000000000000000000000000006",
+    //         "destinationChainId": 11155111,
+    //         "destinationToken": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    //         "originTokenSymbol": "WETH",
+    //         "destinationTokenSymbol": "WETH"
+    //     },
+
+    // bridging 11000000000000000 to sepolia
+
+    function deployBaseSepolia() public {
+        address deployer = _start();
+        // dep balance
+        console2.log("balance %s", deployer.balance);
+
+        DummyXUltraLRT vault = new DummyXUltraLRT();
+
+        address mailbox = address(0); // sepolia mailbox
+        vault.initialize(mailbox, deployer, address(deployer));
+
+        vault.freeMint(deployer, 100 * 1e18);
+
+        console2.log("vault %s", address(vault));
+    }
+
+    function baseSetBridge() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
+        address recipient = 0x633dc76965e520a777378CFc6299d925B443C224;
+        address rToken = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a); // base vault
+
+        vault.setAcrossChainIdRecipient(sepTestId, recipient, rToken);
+    }
+
+    function baseBAsset() public {
+        address deployer = _start();
+        // uint32 sepTestId = 11155111;
+        WETH weth = WETH(payable(0x4200000000000000000000000000000000000006));
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        vault.setBaseAsset(address(weth));
+
+        // get weth
+        weth.deposit{value: 11000000000000000}();
+
+        weth.transfer(address(vault), weth.balanceOf(deployer));
+    }
+
+    function baseSSP() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+
+        // vault.setSparkPool(0x82B564983aE7274c86695917BBf8C99ECb6F0F8F); // sepolia spoke pool old implementation
+        vault.setSpokePool(0x82B564983aE7274c86695917BBf8C99ECb6F0F8F); // sepolia spoke pool
+    }
+
+    function baseTrRemote() public {
+        address deployer = _start();
+        uint32 sepTestId = 11155111;
 
         DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
 

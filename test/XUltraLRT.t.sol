@@ -62,9 +62,11 @@ contract XUltraLRTTest is Test {
     function testAcrossSpokePool() public {
         // set spokepool
 
+        vault.setMaxBridgeFeeBps(2000); // 20%
+
         ISpokePool spokePool = ISpokePool(0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5); // eth spoke pool
 
-        vault.setSparkPool(address(spokePool));
+        vault.setSpokePool(address(spokePool));
 
         console2.log("spoke pool %s", spokePool.fillDeadlineBuffer());
 

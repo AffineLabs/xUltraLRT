@@ -22,6 +22,10 @@ contract XUltraLRTStorage {
     }
     // base asset
 
+    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN");
+
+    bytes32 public constant HARVESTER = keccak256("HARVESTER");
+
     ERC20 public baseAsset;
 
     IMailbox public mailbox;
@@ -51,6 +55,11 @@ contract XUltraLRTStorage {
     // and token info
 
     mapping(uint256 => BridgeRecipient) public acrossChainIdRecipient;
+
+    // max bridge fee bps
+    // 10000 = 100%
+    // @dev fees paid to bridge fully consumed by the bridge protocol.
+    uint256 public maxBridgeFeeBps;
 
     // gap
     uint256[100] private __gap;
