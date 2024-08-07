@@ -32,17 +32,14 @@ contract XUltraLRT is
     using SafeTransferLib for ERC20;
     using SafeTransferLib for ERC4626;
 
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    constructor() {
+        _disableInitializers();
+    }
 
-    function initialize(
-        string memory _name,
-        string memory _symbol,
-        address _mailbox,
-        address _governance,
-        address _factory
-    ) public initializer {
+    function initialize(string memory _name, string memory _symbol, address _governance, address _factory)
+        public
+        initializer
+    {
         __Ownable_init(_governance);
         __Pausable_init();
         __AccessControl_init();
@@ -52,7 +49,6 @@ contract XUltraLRT is
         _grantRole(HARVESTER, _governance);
 
         __XERC20_init(_name, _symbol, _governance, _factory);
-        mailbox = IMailbox(_mailbox);
     }
 
     modifier onlyGuardian() {
@@ -106,10 +102,6 @@ contract XUltraLRT is
     }
 
     function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
-        // check price lag
-        // TODO: introduce limits
-        // TODO: Add test for failed tx with native deposit.
-
         require(block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag, "XUltraLRT: Price not updated");
         require(_amount > 0, "XUltraLRT: Invalid amount");
         require(receiver != address(0), "XUltraLRT: Invalid receiver");

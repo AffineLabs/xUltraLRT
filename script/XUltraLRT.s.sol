@@ -38,7 +38,9 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766; // sepolia mailbox
-        vault.initialize("==", "==", mailbox, deployer, address(deployer));
+        vault.initialize("==", "==", deployer, address(deployer));
+
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 1e18);
 
@@ -81,7 +83,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = 0xF9F6F5646F478d5ab4e20B0F910C92F1CCC9Cc6D; // bsc testnet mailbox
-        vault.initialize("==", "==", mailbox, deployer, address(deployer));
+        vault.initialize("==", "==", deployer, address(deployer));
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 100 * 1e18);
 
@@ -124,7 +127,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = address(0); // blast mailbox
-        vault.initialize("==", " == ", mailbox, deployer, address(deployer));
+        vault.initialize("==", " == ", deployer, address(deployer));
+        vault.setMailbox(mailbox);
     }
 
     function blSetBridge() public {
@@ -206,7 +210,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = address(0); // sepolia mailbox
-        vault.initialize("==", " == ", mailbox, deployer, address(deployer));
+        vault.initialize("==", " == ", deployer, address(deployer));
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 100 * 1e18);
 

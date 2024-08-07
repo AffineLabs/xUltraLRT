@@ -36,9 +36,9 @@ abstract contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable,
      * @param _factory The factory which deployed this contract
      */
     // todo: fix the governance
-    function initialize(string memory _name, string memory _symbol, address _factory) public initializer {
-        __XERC20_init(_name, _symbol, msg.sender, _factory);
-    }
+    // function initialize(string memory _name, string memory _symbol, address _factory) public initializer {
+    //     __XERC20_init(_name, _symbol, msg.sender, _factory);
+    // }
 
     /**
      * @notice Constructs the initial config of the XERC20

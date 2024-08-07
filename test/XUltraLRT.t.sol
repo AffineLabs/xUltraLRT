@@ -15,6 +15,8 @@ import {XUltraLRTStorage} from "../src/xERC20/contracts/XUltraLRTStorage.sol";
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
     ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -23,8 +25,18 @@ contract XUltraLRTTest is Test {
     function setUp() public {
         vm.createSelectFork("ethereum");
 
-        vault = new XUltraLRT();
-        vault.initialize("==", " == ", address(mailbox), address(this), address(this));
+        XUltraLRT vaultImpl = new XUltraLRT();
+
+        // bytes memory data = abi.encodeWithSignature(X, "==", "==", address(this), address(this));
+        bytes memory initializeBytecode =
+            abi.encodeCall(XUltraLRT.initialize, ("Cross-chain Affine LRT", "XUltraLRT", address(this), address(this)));
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(vaultImpl), address(this), initializeBytecode);
+
+        vault = XUltraLRT(payable(address(proxy)));
+
+        vault.setMailbox(address(mailbox));
     }
 
     function testTransfer() public {
