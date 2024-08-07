@@ -3,6 +3,8 @@ pragma solidity =0.8.20;
 
 import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {IStEth} from "src/interfaces/lido/IStEth.sol";
+import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
 contract XUltraLRTStorage {
     // enum
@@ -25,6 +27,9 @@ contract XUltraLRTStorage {
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN");
 
     bytes32 public constant HARVESTER = keccak256("HARVESTER");
+
+    IStEth public constant STETH = IStEth(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IWSTETH public constant WSTETH = IWSTETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
     ERC20 public baseAsset;
 
