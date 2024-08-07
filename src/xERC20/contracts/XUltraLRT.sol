@@ -197,6 +197,7 @@ contract XUltraLRT is
     function _getPricePublishMessage(uint32 domain)
         internal
         view
+        virtual
         returns (bytes memory messageData, bytes32 recipient)
     {
         recipient = routerMap[domain];
@@ -209,8 +210,7 @@ contract XUltraLRT is
 
         // get price per share from lockbox ba
         // send message to mint token on remote chain
-        Message memory message =
-            Message(MSG_TYPE.PRICE_UPDATE, address(0), _sharePrice, lastPriceUpdateTimeStamp, block.timestamp);
+        Message memory message = Message(MSG_TYPE.PRICE_UPDATE, address(0), 0, _sharePrice, block.timestamp);
         messageData = abi.encode(message);
     }
 

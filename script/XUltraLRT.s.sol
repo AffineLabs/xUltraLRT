@@ -16,6 +16,31 @@ contract DummyXUltraLRT is XUltraLRT {
     function freeBurn(address from, uint256 amount) public onlyOwner {
         _burn(from, amount);
     }
+
+    function setPrice(uint256 _price) public onlyOwner {
+        sharePrice = _price;
+        lastPriceUpdateTimeStamp = block.timestamp;
+    }
+
+    function _getPricePublishMessage(uint32 domain)
+        internal
+        view
+        override
+        returns (bytes memory messageData, bytes32 recipient)
+    {
+        recipient = routerMap[domain];
+        require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
+
+        // check if it has lockbox
+        require(lockbox != address(0), "XUltraLRT: No lockbox");
+
+        uint256 _sharePrice = 1e18 + 1;
+
+        // get price per share from lockbox ba
+        // send message to mint token on remote chain
+        Message memory message = Message(MSG_TYPE.PRICE_UPDATE, address(0), 0, _sharePrice, block.timestamp);
+        messageData = abi.encode(message);
+    }
 }
 
 contract XUltraLRTScript is Script {
@@ -50,15 +75,32 @@ contract XUltraLRTScript is Script {
     function srSep() public {
         address deployer = _start();
         uint32 bscTestId = 97;
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
-        bytes32 recipient = bytes32(uint256(uint160(0x7e80886220B586942a200c92AD1273A3e128086b)));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
+        bytes32 recipient = bytes32(uint256(uint160(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9)));
         console2.logBytes32(recipient);
         vault.setRouter(bscTestId, recipient);
     }
 
+    function srSetPrice() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
+
+        vault.setPrice(1e18);
+    }
+
+    function srSetBT() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
+
+        vault.setBaseAsset(0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14);
+        vault.allowTokenDeposit();
+    }
+
     function trSep() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
         uint32 bscTestId = 97; //bsc test id
         uint256 feeAmount = vault.quoteTransferRemote(bscTestId, 10000);
         console2.log("router %s", feeAmount);
@@ -67,8 +109,14 @@ contract XUltraLRTScript is Script {
 
     function gtSep() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
         vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
+    }
+
+    function uplSep() public {
+        address deployer = _start();
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48));
+        vault.setMaxPriceLag(3600 * 24 * 7); // 1 week
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -94,15 +142,32 @@ contract XUltraLRTScript is Script {
     function srBsc() public {
         address deployer = _start();
         uint32 sepTestId = 11155111;
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
-        bytes32 recipient = bytes32(uint256(uint160(0x633dc76965e520a777378CFc6299d925B443C224)));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9));
+        bytes32 recipient = bytes32(uint256(uint160(0xc3a567967A7959B1c4e545fc6AeC2A085bD38D48)));
         console2.logBytes32(recipient);
         vault.setRouter(sepTestId, recipient);
     }
 
+    function setPriceBSC() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9));
+
+        vault.setPrice(1e18);
+    }
+
+    function setBTBSC() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9));
+
+        vault.setBaseAsset(0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14);
+        vault.allowTokenDeposit();
+    }
+
     function trBsc() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9));
         uint32 sepTestId = 11155111;
         uint256 feeAmount = vault.quoteTransferRemote(sepTestId, 10000);
         console2.log("fees %s", feeAmount);
@@ -111,7 +176,7 @@ contract XUltraLRTScript is Script {
 
     function gtBsc() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0xC171127B3f054a4daeCC0E5D3AC4ed01dEEBA9c9));
         vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
