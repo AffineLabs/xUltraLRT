@@ -2,7 +2,7 @@
 pragma solidity =0.8.20;
 
 import {IXERC20Factory} from "../interfaces/IXERC20Factory.sol";
-import {XERC20} from "./XERC20.sol";
+import {XUltraLRT} from "./XUltraLRT.sol";
 import {XERC20Lockbox} from "./XERC20Lockbox.sol";
 import {CREATE3} from "solmate/src/utils/CREATE3.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -96,7 +96,7 @@ contract XERC20Factory is Initializable, IXERC20Factory {
             revert IXERC20Factory_BadTokenAddress();
         }
 
-        if (XERC20(_xerc20).owner() != msg.sender) revert IXERC20Factory_NotOwner();
+        if (XUltraLRT(payable(_xerc20)).owner() != msg.sender) revert IXERC20Factory_NotOwner();
         if (_lockboxRegistry[_xerc20] != address(0)) revert IXERC20Factory_LockboxAlreadyDeployed();
 
         _lockbox = _deployLockbox(_xerc20, _baseToken, _isNative, _proxyAdmin);
@@ -130,7 +130,8 @@ contract XERC20Factory is Initializable, IXERC20Factory {
         bytes32 _salt = keccak256(abi.encodePacked(_name, _symbol, msg.sender));
 
         // Initialize function - sent as 3rd argument to the proxy constructor
-        bytes memory initializeBytecode = abi.encodeCall(XERC20.initialize, (_name, _symbol, address(this)));
+        bytes memory initializeBytecode =
+            abi.encodeCall(XUltraLRT.initialize, (_name, _symbol, _proxyAdmin, address(this)));
 
         bytes memory _creation = type(TransparentUpgradeableProxy).creationCode;
 
@@ -143,10 +144,11 @@ contract XERC20Factory is Initializable, IXERC20Factory {
         EnumerableSet.add(_xerc20RegistryArray, _xerc20);
 
         for (uint256 _i; _i < _bridgesLength; ++_i) {
-            XERC20(_xerc20).setLimits(_bridges[_i], _minterLimits[_i], _burnerLimits[_i]);
+            XUltraLRT(payable(_xerc20)).setLimits(_bridges[_i], _minterLimits[_i], _burnerLimits[_i]);
         }
 
-        XERC20(_xerc20).transferOwnership(msg.sender);
+        // transfer ownership of the xerc20 to the proxy admin
+        // XUltraLRT(payable(_xerc20)).transferOwnership(_proxyAdmin);
     }
 
     /**
@@ -176,7 +178,7 @@ contract XERC20Factory is Initializable, IXERC20Factory {
 
         _lockbox = payable(CREATE3.deploy(_salt, _bytecode, 0));
 
-        XERC20(_xerc20).setLockbox(address(_lockbox));
+        XUltraLRT(payable(_xerc20)).setLockbox(address(_lockbox));
         EnumerableSet.add(_lockboxRegistryArray, _lockbox);
         _lockboxRegistry[_xerc20] = _lockbox;
     }

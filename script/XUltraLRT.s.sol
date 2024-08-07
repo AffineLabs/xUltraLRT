@@ -38,7 +38,9 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766; // sepolia mailbox
-        vault.initialize(mailbox, deployer, address(deployer));
+        vault.initialize("==", "==", deployer, address(deployer));
+
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 1e18);
 
@@ -48,7 +50,7 @@ contract XUltraLRTScript is Script {
     function srSep() public {
         address deployer = _start();
         uint32 bscTestId = 97;
-        DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
         bytes32 recipient = bytes32(uint256(uint160(0x7e80886220B586942a200c92AD1273A3e128086b)));
         console2.logBytes32(recipient);
         vault.setRouter(bscTestId, recipient);
@@ -56,7 +58,7 @@ contract XUltraLRTScript is Script {
 
     function trSep() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
         uint32 bscTestId = 97; //bsc test id
         uint256 feeAmount = vault.quoteTransferRemote(bscTestId, 10000);
         console2.log("router %s", feeAmount);
@@ -65,7 +67,7 @@ contract XUltraLRTScript is Script {
 
     function gtSep() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(0x633dc76965e520a777378CFc6299d925B443C224);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x633dc76965e520a777378CFc6299d925B443C224));
         vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
@@ -81,7 +83,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = 0xF9F6F5646F478d5ab4e20B0F910C92F1CCC9Cc6D; // bsc testnet mailbox
-        vault.initialize(mailbox, deployer, address(deployer));
+        vault.initialize("==", "==", deployer, address(deployer));
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 100 * 1e18);
 
@@ -91,7 +94,7 @@ contract XUltraLRTScript is Script {
     function srBsc() public {
         address deployer = _start();
         uint32 sepTestId = 11155111;
-        DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
         bytes32 recipient = bytes32(uint256(uint160(0x633dc76965e520a777378CFc6299d925B443C224)));
         console2.logBytes32(recipient);
         vault.setRouter(sepTestId, recipient);
@@ -99,7 +102,7 @@ contract XUltraLRTScript is Script {
 
     function trBsc() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
         uint32 sepTestId = 11155111;
         uint256 feeAmount = vault.quoteTransferRemote(sepTestId, 10000);
         console2.log("fees %s", feeAmount);
@@ -108,7 +111,7 @@ contract XUltraLRTScript is Script {
 
     function gtBsc() public {
         address deployer = _start();
-        DummyXUltraLRT vault = DummyXUltraLRT(0x7e80886220B586942a200c92AD1273A3e128086b);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x7e80886220B586942a200c92AD1273A3e128086b));
         vault.freeMint(0x46D886361d6b7ba0d28080132B6ec70E2e49f332, 100 * 1e18);
     }
 
@@ -124,7 +127,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = address(0); // blast mailbox
-        vault.initialize(mailbox, deployer, address(deployer));
+        vault.initialize("==", " == ", deployer, address(deployer));
+        vault.setMailbox(mailbox);
     }
 
     function blSetBridge() public {
@@ -133,7 +137,7 @@ contract XUltraLRTScript is Script {
         address recipient = 0x633dc76965e520a777378CFc6299d925B443C224;
         address rToken = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         vault.setAcrossChainIdRecipient(sepTestId, recipient, rToken);
     }
@@ -143,7 +147,7 @@ contract XUltraLRTScript is Script {
         // uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
 
-        // DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        // DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         // vault.setBaseAsset(address(weth));
 
@@ -156,7 +160,7 @@ contract XUltraLRTScript is Script {
         uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         // transfer to vault
         weth.transfer(address(vault), weth.balanceOf(deployer));
@@ -167,7 +171,7 @@ contract XUltraLRTScript is Script {
         uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         // vault.setSparkPool(0x5545092553Cf5Bf786e87a87192E902D50D8f022); old implementation
         // vault.setSpokePool(0x5545092553Cf5Bf786e87a87192E902D50D8f022);
@@ -178,7 +182,7 @@ contract XUltraLRTScript is Script {
         uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000023));
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         vault.bridgeToken(sepTestId, 11000000000000000, 1000000000000000, uint32(block.timestamp));
     }
@@ -206,7 +210,8 @@ contract XUltraLRTScript is Script {
         DummyXUltraLRT vault = new DummyXUltraLRT();
 
         address mailbox = address(0); // sepolia mailbox
-        vault.initialize(mailbox, deployer, address(deployer));
+        vault.initialize("==", " == ", deployer, address(deployer));
+        vault.setMailbox(mailbox);
 
         vault.freeMint(deployer, 100 * 1e18);
 
@@ -219,7 +224,7 @@ contract XUltraLRTScript is Script {
         address recipient = 0x633dc76965e520a777378CFc6299d925B443C224;
         address rToken = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a); // base vault
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a)); // base vault
 
         vault.setAcrossChainIdRecipient(sepTestId, recipient, rToken);
     }
@@ -229,7 +234,7 @@ contract XUltraLRTScript is Script {
         // uint32 sepTestId = 11155111;
         WETH weth = WETH(payable(0x4200000000000000000000000000000000000006));
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         vault.setBaseAsset(address(weth));
 
@@ -242,7 +247,7 @@ contract XUltraLRTScript is Script {
     function baseSSP() public {
         address deployer = _start();
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         // vault.setSparkPool(0x82B564983aE7274c86695917BBf8C99ECb6F0F8F); // sepolia spoke pool old implementation
         vault.setSpokePool(0x82B564983aE7274c86695917BBf8C99ECb6F0F8F); // sepolia spoke pool
@@ -252,7 +257,7 @@ contract XUltraLRTScript is Script {
         address deployer = _start();
         uint32 sepTestId = 11155111;
 
-        DummyXUltraLRT vault = DummyXUltraLRT(0x192B42e956b152367BB9C35B2fb4B068b6A0929a);
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x192B42e956b152367BB9C35B2fb4B068b6A0929a));
 
         vault.bridgeToken(sepTestId, 11000000000000000, 1000000000000000, uint32(block.timestamp));
     }

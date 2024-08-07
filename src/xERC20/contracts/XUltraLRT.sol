@@ -5,8 +5,10 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {WETH} from "solmate/src/tokens/WETH.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 
 import {IMessageRecipient} from "src/interfaces/hyperlane/IMessageRecipient.sol";
@@ -28,12 +30,16 @@ contract XUltraLRT is
     IMessageRecipient
 {
     using SafeTransferLib for ERC20;
+    using SafeTransferLib for ERC4626;
 
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    constructor() {
+        _disableInitializers();
+    }
 
-    function initialize(address _mailbox, address _governance, address _factory) public initializer {
+    function initialize(string memory _name, string memory _symbol, address _governance, address _factory)
+        public
+        initializer
+    {
         __Ownable_init(_governance);
         __Pausable_init();
         __AccessControl_init();
@@ -42,8 +48,7 @@ contract XUltraLRT is
         _grantRole(GUARDIAN_ROLE, _governance);
         _grantRole(HARVESTER, _governance);
 
-        __XERC20_init("XUltraLRT", "XULRT", _governance, _factory);
-        mailbox = IMailbox(_mailbox);
+        __XERC20_init(_name, _symbol, _governance, _factory);
     }
 
     modifier onlyGuardian() {
@@ -97,10 +102,6 @@ contract XUltraLRT is
     }
 
     function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
-        // check price lag
-        // TODO: introduce limits
-        // TODO: Add test for failed tx with native deposit.
-
         require(block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag, "XUltraLRT: Price not updated");
         require(_amount > 0, "XUltraLRT: Invalid amount");
         require(receiver != address(0), "XUltraLRT: Invalid receiver");
@@ -252,7 +253,6 @@ contract XUltraLRT is
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
         require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");
 
-        // todo require a fee check for max fees threshold
         // approve
         baseAsset.safeApprove(address(acrossSpokePool), amount);
         // bridge token
@@ -271,4 +271,59 @@ contract XUltraLRT is
             "" // message TODO: passing and handling message
         );
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    //////////////////// UTILIZING BRIDGED ASSETS IN L1 //////////////////////
+    //////////////////////////////////////////////////////////////////////////
+
+    function buyLRT(uint256 _amount) public virtual onlyHarvester {
+        require(_amount > 0, "XUltraLRT: Invalid amount");
+        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
+
+        // must have lockbox
+        require(lockbox != address(0), "XUltraLRT: No lockbox");
+
+        // get lockbox token
+        ERC4626 ultraLRT = ERC4626(address(XERC20Lockbox(payable(lockbox)).ERC20()));
+
+        uint256 ultraLRTAmount = ultraLRT.balanceOf(address(this));
+        // swap assets to lrt assets
+        // convert to eth
+        WETH(payable(address(baseAsset))).withdraw(_amount);
+        // convert to stEth
+
+        // stEth amount
+        uint256 stEthAmount = STETH.balanceOf(address(this));
+
+        STETH.submit{value: _amount}(address(this));
+
+        uint256 mintedStEth = STETH.balanceOf(address(this)) - stEthAmount;
+
+        if (ultraLRT.asset() == address(STETH)) {
+            // swap stEth to lrt
+            STETH.approve(address(ultraLRT), mintedStEth);
+            ultraLRT.deposit(mintedStEth, address(this));
+        } else if (ultraLRT.asset() == address(WSTETH)) {
+            // swap wstEth to lrt
+            STETH.approve(address(WSTETH), mintedStEth);
+
+            uint256 wStEthAmount = WSTETH.balanceOf(address(this));
+            WSTETH.wrap(mintedStEth);
+            uint256 mintedWStEth = WSTETH.balanceOf(address(this)) - wStEthAmount;
+
+            WSTETH.approve(address(ultraLRT), mintedWStEth);
+            ultraLRT.deposit(mintedWStEth, address(this));
+        } else {
+            revert("XUltraLRT: Invalid asset");
+        }
+
+        // minted lrt
+        uint256 mintedLRT = ultraLRT.balanceOf(address(this)) - ultraLRTAmount;
+
+        // transfer the lrt to the lockbox don't need to mint as it is already minted
+        ERC20(address(ultraLRT)).safeTransfer(lockbox, mintedLRT);
+    }
+
+    // receive eth
+    receive() external payable {}
 }
