@@ -36,7 +36,13 @@ contract XUltraLRT is
     //     _disableInitializers();
     // }
 
-    function initialize(address _mailbox, address _governance, address _factory) public initializer {
+    function initialize(
+        string memory _name,
+        string memory _symbol,
+        address _mailbox,
+        address _governance,
+        address _factory
+    ) public initializer {
         __Ownable_init(_governance);
         __Pausable_init();
         __AccessControl_init();
@@ -45,7 +51,7 @@ contract XUltraLRT is
         _grantRole(GUARDIAN_ROLE, _governance);
         _grantRole(HARVESTER, _governance);
 
-        __XERC20_init("XUltraLRT", "XULRT", _governance, _factory);
+        __XERC20_init(_name, _symbol, _governance, _factory);
         mailbox = IMailbox(_mailbox);
     }
 

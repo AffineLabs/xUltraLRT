@@ -24,7 +24,7 @@ contract XUltraLRTTest is Test {
         vm.createSelectFork("ethereum");
 
         vault = new XUltraLRT();
-        vault.initialize(address(mailbox), address(this), address(this));
+        vault.initialize("==", " == ", address(mailbox), address(this), address(this));
     }
 
     function testTransfer() public {

@@ -41,20 +41,13 @@ interface IXERC20Factory {
      * @dev _limits and _minters must be the same length
      * @param _name The name of the token
      * @param _symbol The symbol of the token
-     * @param _minterLimits The array of minter limits that you are adding (optional, can be an empty array)
-     * @param _burnerLimits The array of burning limits that you are adding (optional, can be an empty array)
-     * @param _bridges The array of burners that you are adding (optional, can be an empty array)
+     * @param _mailbox The address of the mailbox
      * @param _proxyAdmin The address of the proxy admin - will have permission to upgrade the lockbox (should be a dedicated account or contract to manage upgrades)
      * @return _xerc20 The address of the xerc20
      */
-    function deployXERC20(
-        string memory _name,
-        string memory _symbol,
-        uint256[] memory _minterLimits,
-        uint256[] memory _burnerLimits,
-        address[] memory _bridges,
-        address _proxyAdmin
-    ) external returns (address _xerc20);
+    function deployXERC20(string memory _name, string memory _symbol, address _mailbox, address _proxyAdmin)
+        external
+        returns (address _xerc20);
 
     /**
      * @notice Deploys an XERC20Lockbox contract using CREATE3
