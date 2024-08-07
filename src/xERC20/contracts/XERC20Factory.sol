@@ -148,7 +148,7 @@ contract XERC20Factory is Initializable, IXERC20Factory {
         }
 
         // transfer ownership of the xerc20 to the proxy admin
-        XUltraLRT(payable(_xerc20)).transferOwnership(_proxyAdmin);
+        // XUltraLRT(payable(_xerc20)).transferOwnership(_proxyAdmin);
     }
 
     /**

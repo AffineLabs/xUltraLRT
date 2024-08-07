@@ -11,6 +11,8 @@ import {console2} from "forge-std/console2.sol";
 import {IMailbox} from "../src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRT} from "../src/xERC20/contracts/XUltraLRT.sol";
 import {XUltraLRTStorage} from "../src/xERC20/contracts/XUltraLRTStorage.sol";
+import {XERC20Factory} from "../src/xERC20/contracts/XERC20Factory.sol";
+import {XERC20Lockbox} from "../src/xERC20/contracts/XERC20Lockbox.sol";
 
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
@@ -22,19 +24,50 @@ contract XUltraLRTTest is Test {
     ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     XUltraLRT public vault;
 
+    XERC20Factory public factory;
+    XERC20Lockbox public lockbox;
+
+    address ultraEth = 0xcbC632833687DacDcc7DfaC96F6c5989381f4B47;
+    address ultraEths = 0xF0a949B935e367A94cDFe0F2A54892C2BC7b2131;
+
+    function _deployFactory() internal {
+        XUltraLRT vaultImpl = new XUltraLRT();
+        XERC20Lockbox lockboxImpl = new XERC20Lockbox();
+
+        XERC20Factory factoryImpl = new XERC20Factory();
+
+        bytes memory initData = abi.encodeCall(XERC20Factory.initialize, (address(lockboxImpl), address(vaultImpl)));
+
+        TransparentUpgradeableProxy proxy =
+            new TransparentUpgradeableProxy(address(factoryImpl), address(this), initData);
+
+        factory = XERC20Factory((address(proxy)));
+    }
+
+    function _deployXUltraLRT() internal {
+        uint256[] memory minterLimits;
+        address[] memory minters;
+        uint256[] memory burnerLimits;
+
+        vault = XUltraLRT(
+            payable(
+                factory.deployXERC20(
+                    "Cross-chain Affine LRT", "XUltraLRT", minterLimits, burnerLimits, minters, address(this)
+                )
+            )
+        );
+    }
+
+    function _deployXLockbox() internal {
+        lockbox = XERC20Lockbox(payable(factory.deployLockbox(address(vault), address(ultraEth), false, address(this))));
+    }
+
     function setUp() public {
         vm.createSelectFork("ethereum");
 
-        XUltraLRT vaultImpl = new XUltraLRT();
-
-        // bytes memory data = abi.encodeWithSignature(X, "==", "==", address(this), address(this));
-        bytes memory initializeBytecode =
-            abi.encodeCall(XUltraLRT.initialize, ("Cross-chain Affine LRT", "XUltraLRT", address(this), address(this)));
-
-        TransparentUpgradeableProxy proxy =
-            new TransparentUpgradeableProxy(address(vaultImpl), address(this), initializeBytecode);
-
-        vault = XUltraLRT(payable(address(proxy)));
+        _deployFactory();
+        _deployXUltraLRT();
+        _deployXLockbox();
 
         vault.setMailbox(address(mailbox));
     }
@@ -98,5 +131,18 @@ contract XUltraLRTTest is Test {
 
         vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
         // assertTrue(true);
+    }
+
+    function testBuyingLRT() public {
+        // prev ultra lrt balance
+        console2.log("balance %s", ERC20(ultraEth).balanceOf(address(lockbox)));
+        // set base asset
+        vault.setBaseAsset(address(weth));
+        // deal weth to the vault
+        deal(address(weth), address(vault), 10 * 1e18);
+        // buy lrt
+        vault.buyLRT(10 * 1e18);
+
+        console2.log("balance %s", ERC20(ultraEth).balanceOf(address(lockbox)));
     }
 }

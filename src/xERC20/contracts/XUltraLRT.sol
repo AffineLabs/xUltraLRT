@@ -277,7 +277,6 @@ contract XUltraLRT is
     //////////////////////////////////////////////////////////////////////////
 
     function buyLRT(uint256 _amount) public virtual onlyHarvester {
-        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
         require(_amount > 0, "XUltraLRT: Invalid amount");
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
 
@@ -289,23 +288,31 @@ contract XUltraLRT is
 
         uint256 ultraLRTAmount = ultraLRT.balanceOf(address(this));
         // swap assets to lrt assets
-
         // convert to eth
         WETH(payable(address(baseAsset))).withdraw(_amount);
         // convert to stEth
-        uint256 stEthAmount = STETH.submit{value: _amount}(address(this));
+
+        // stEth amount
+        uint256 stEthAmount = STETH.balanceOf(address(this));
+
+        STETH.submit{value: _amount}(address(this));
+
+        uint256 mintedStEth = STETH.balanceOf(address(this)) - stEthAmount;
 
         if (ultraLRT.asset() == address(STETH)) {
             // swap stEth to lrt
-            STETH.approve(address(ultraLRT), stEthAmount);
-            ultraLRT.deposit(stEthAmount, address(this));
+            STETH.approve(address(ultraLRT), mintedStEth);
+            ultraLRT.deposit(mintedStEth, address(this));
         } else if (ultraLRT.asset() == address(WSTETH)) {
             // swap wstEth to lrt
-            STETH.approve(address(WSTETH), stEthAmount);
-            uint256 wStEthAmount = WSTETH.wrap(stEthAmount);
+            STETH.approve(address(WSTETH), mintedStEth);
 
-            WSTETH.approve(address(ultraLRT), wStEthAmount);
-            ultraLRT.deposit(wStEthAmount, address(this));
+            uint256 wStEthAmount = WSTETH.balanceOf(address(this));
+            WSTETH.wrap(mintedStEth);
+            uint256 mintedWStEth = WSTETH.balanceOf(address(this)) - wStEthAmount;
+
+            WSTETH.approve(address(ultraLRT), mintedWStEth);
+            ultraLRT.deposit(mintedWStEth, address(this));
         } else {
             revert("XUltraLRT: Invalid asset");
         }
@@ -314,7 +321,7 @@ contract XUltraLRT is
         uint256 mintedLRT = ultraLRT.balanceOf(address(this)) - ultraLRTAmount;
 
         // transfer the lrt to the lockbox don't need to mint as it is already minted
-        ERC20(address(ultraLRT)).safeTransferFrom(address(this), lockbox, mintedLRT);
+        ERC20(address(ultraLRT)).safeTransfer(lockbox, mintedLRT);
     }
 
     // receive eth
