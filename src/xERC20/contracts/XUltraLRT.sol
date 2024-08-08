@@ -118,7 +118,7 @@ contract XUltraLRT is
 
     function _updatePrice(uint256 _price, uint256 _sourceTimeStamp) internal {
         // update on only valid timestamp
-        if (_sourceTimeStamp > lastPriceUpdateTimeStamp && block.timestamp > _sourceTimeStamp && _price > 0) {
+        if (_sourceTimeStamp > lastPriceUpdateTimeStamp && block.timestamp >= _sourceTimeStamp && _price > 0) {
             sharePrice = _price;
             lastPriceUpdateTimeStamp = _sourceTimeStamp;
         }
