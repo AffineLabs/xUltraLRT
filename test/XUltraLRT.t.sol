@@ -85,10 +85,12 @@ contract XUltraLRTTest is Test {
         vault.transferRemote(blastId, 1e18);
 
         console2.log("balance %s", vault.balanceOf(address(this)));
-        // assertTrue(true);
+
+        // asset should be zero after burning
+        assertEq(vault.balanceOf(address(this)), 0);
     }
 
-    function testMsgReceived() public {
+    function testMsgReceivedMint() public {
         uint32 blastId = 81457;
         // add domain
         bytes32 sender = bytes32(uint256(uint160(address(this))));
@@ -102,6 +104,121 @@ contract XUltraLRTTest is Test {
         // send message
         vm.prank(address(mailbox));
         vault.handle(blastId, sender, data);
+
+        assertEq(vault.balanceOf(address(this)), 1e18);
+    }
+
+    function testMsgReceivedBurn() public {
+        testMsgReceivedMint();
+
+        uint32 blastId = 81457;
+        // add domain
+        bytes32 sender = bytes32(uint256(uint160(address(this))));
+        vault.setRouter(blastId, sender);
+
+        XUltraLRTStorage.Message memory sMsg =
+            XUltraLRTStorage.Message(XUltraLRTStorage.MSG_TYPE.BURN, address(this), 1e18, 0, block.timestamp);
+
+        bytes memory data = abi.encode(sMsg);
+
+        // send message
+        vm.prank(address(mailbox));
+        vault.handle(blastId, sender, data);
+
+        assertEq(vault.balanceOf(address(this)), 0);
+    }
+
+    function testMsgReceivedPriceUpdate() public {
+        uint32 blastId = 81457;
+        // add domain
+        bytes32 sender = bytes32(uint256(uint160(address(this))));
+        vault.setRouter(blastId, sender);
+
+        XUltraLRTStorage.Message memory sMsg =
+            XUltraLRTStorage.Message(XUltraLRTStorage.MSG_TYPE.PRICE_UPDATE, address(this), 0, 1e18, block.timestamp);
+
+        bytes memory data = abi.encode(sMsg);
+
+        // send message
+        vm.prank(address(mailbox));
+        vault.handle(blastId, sender, data);
+
+        assertEq(vault.sharePrice(), 1e18);
+    }
+
+    function testWithZeroPrice() public {
+        testMsgReceivedPriceUpdate();
+        uint32 blastId = 81457;
+        // add domain
+        bytes32 sender = bytes32(uint256(uint160(address(this))));
+        XUltraLRTStorage.Message memory sMsg =
+            XUltraLRTStorage.Message(XUltraLRTStorage.MSG_TYPE.PRICE_UPDATE, address(this), 0, 0, block.timestamp);
+
+        bytes memory data = abi.encode(sMsg);
+
+        // send message
+        vm.prank(address(mailbox));
+        vault.handle(blastId, sender, data);
+        assertEq(vault.sharePrice(), 1e18);
+    }
+
+    function testDeposit() public {
+        testMsgReceivedPriceUpdate();
+
+        // set base asset and  allow token deposit
+        vault.setBaseAsset(address(weth));
+        vault.allowTokenDeposit();
+
+        // get asset to this address
+        deal(address(weth), address(this), 1e18);
+
+        // allow
+        weth.approve(address(vault), 1e18);
+
+        vault.deposit(1e18, address(this));
+
+        assertEq(vault.balanceOf(address(this)), 1e18);
+        // deposit weth to the vault
+    }
+
+    function testDepositWithFailCases() public {
+        // get asset to this address
+        deal(address(weth), address(this), 1e18);
+
+        // deposit when not approved
+        vm.expectRevert("XUltraLRT: Token deposit not allowed");
+        vault.deposit(1e18, address(this));
+
+        vault.allowTokenDeposit();
+
+        // when price is not updated
+        vm.expectRevert("XUltraLRT: Price not updated");
+        vault.deposit(1e18, address(this));
+        // update price
+        testMsgReceivedPriceUpdate();
+        // deposit zero amount
+        vm.expectRevert("XUltraLRT: Invalid amount");
+        vault.deposit(0, address(this));
+
+        // // deposit to zero address
+        vm.expectRevert("XUltraLRT: Invalid receiver");
+        vault.deposit(1e18, address(0));
+
+        // invalid assets
+        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vault.deposit(1e18, address(this));
+
+        // set base asset
+        vault.setBaseAsset(address(weth));
+
+        // deposit weth to the vault
+        vm.expectRevert("TRANSFER_FROM_FAILED");
+        vault.deposit(1e18, address(this));
+
+        // approve
+        weth.approve(address(vault), 1e18);
+        vault.deposit(1e18, address(this));
+        assertEq(vault.balanceOf(address(this)), 1e18);
     }
 
     function testAcrossSpokePool() public {
