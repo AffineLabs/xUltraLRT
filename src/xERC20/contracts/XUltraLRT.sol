@@ -190,7 +190,7 @@ contract XUltraLRT is
     function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
-        mailbox.dispatch{value: 0}(domain, recipient, messageData);
+        mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
     }
 
     // normalized price update msg
@@ -244,11 +244,11 @@ contract XUltraLRT is
         require(bridgeInfo.recipient != address(0), "XUltraLRT: Invalid destination recipient");
         require(bridgeInfo.token != address(0), "XUltraLRT: Invalid destination token");
         require(amount > 0, "XUltraLRT: Invalid amount");
-        require(fees >= 0, "XUltraLRT: Invalid fees");
+        require(fees > 0, "XUltraLRT: Invalid fees");
 
         uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / 10000;
 
-        require(fees <= maxAllowedFees, "XUltraLRT: Invalid fees");
+        require(fees <= maxAllowedFees, "XUltraLRT: Exceeds max fees");
 
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
         require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");

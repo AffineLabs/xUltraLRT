@@ -16,6 +16,8 @@ import {XERC20Lockbox} from "../src/xERC20/contracts/XERC20Lockbox.sol";
 
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -44,12 +46,12 @@ contract XUltraLRTTest is Test {
         factory = XERC20Factory((address(proxy)));
     }
 
-    function _deployXUltraLRT() internal {
+    function _deployXUltraLRT() internal returns (XUltraLRT _vault) {
         uint256[] memory minterLimits;
         address[] memory minters;
         uint256[] memory burnerLimits;
 
-        vault = XUltraLRT(
+        _vault = XUltraLRT(
             payable(
                 factory.deployXERC20(
                     "Cross-chain Affine LRT", "XUltraLRT", minterLimits, burnerLimits, minters, address(this)
@@ -58,16 +60,16 @@ contract XUltraLRTTest is Test {
         );
     }
 
-    function _deployXLockbox() internal {
-        lockbox = XERC20Lockbox(payable(factory.deployLockbox(address(vault), address(ultraEth), false, address(this))));
+    function _deployXLockbox(address _asset) internal returns (XERC20Lockbox _lockbox) {
+        _lockbox = XERC20Lockbox(payable(factory.deployLockbox(address(vault), address(_asset), false, address(this))));
     }
 
     function setUp() public {
         vm.createSelectFork("ethereum");
 
         _deployFactory();
-        _deployXUltraLRT();
-        _deployXLockbox();
+        vault = _deployXUltraLRT();
+        lockbox = _deployXLockbox(ultraEth);
 
         vault.setMailbox(address(mailbox));
     }
@@ -106,6 +108,11 @@ contract XUltraLRTTest is Test {
         vault.handle(blastId, sender, data);
 
         assertEq(vault.balanceOf(address(this)), 1e18);
+
+        // handle with invalid sender
+        vm.expectRevert("XUltraLRT: Invalid origin");
+        vm.prank(address(mailbox));
+        vault.handle(blastId, bytes32(uint256(uint160(address(0)))), data);
     }
 
     function testMsgReceivedBurn() public {
@@ -219,6 +226,171 @@ contract XUltraLRTTest is Test {
         weth.approve(address(vault), 1e18);
         vault.deposit(1e18, address(this));
         assertEq(vault.balanceOf(address(this)), 1e18);
+
+        // test with max price lag
+        // change block timestamp
+        vm.warp(block.timestamp + 1000); // 1000 seconds
+        deal(address(weth), address(this), 1e18);
+        weth.approve(address(vault), 1e18);
+
+        vm.expectRevert("XUltraLRT: Price not updated");
+        vault.deposit(1e18, address(this));
+
+        // set price lag
+        vault.setMaxPriceLag(1000);
+        vault.deposit(1e18, address(this));
+
+        assertEq(vault.balanceOf(address(this)), 2 * 1e18);
+
+        // disable token deposit
+        deal(address(weth), address(this), 1e18);
+        weth.approve(address(vault), 1e18);
+        vault.disableTokenDeposit();
+        vm.expectRevert("XUltraLRT: Token deposit not allowed");
+        vault.deposit(1e18, address(this));
+    }
+
+    function _depositToVault(uint256 _amount) public {
+        // get more assets to deposit
+        deal(address(weth), address(this), _amount);
+        weth.approve(address(vault), _amount);
+        vault.deposit(_amount, address(this));
+    }
+
+    function testTransferRemote() public {
+        testDeposit();
+
+        uint32 blastId = 81457;
+        // add domain
+        vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
+
+        uint256 fees = vault.quoteTransferRemote(blastId, 1e18);
+
+        vault.transferRemote{value: fees}(blastId, 1e18);
+
+        assertEq(vault.balanceOf(address(this)), 0);
+
+        _depositToVault(1e18);
+
+        fees = vault.quoteTransferRemote(blastId, 1e18);
+
+        // transfer remote with low fees
+        fees = vault.quoteTransferRemote(blastId, 1e19);
+
+        vm.expectRevert(); // insufficient assets
+        vault.transferRemote{value: fees}(blastId, 1e19);
+
+        assertEq(vault.balanceOf(address(this)), 1e18); // balance should be same
+
+        address recipient = address(123);
+        // transfer remote to other address
+        fees = vault.quoteTransferRemote(blastId, recipient, 1e18);
+
+        vault.transferRemote{value: fees}(blastId, recipient, 1e18);
+        assertEq(vault.balanceOf(address(this)), 0);
+
+        vm.expectRevert("XUltraLRT: Invalid destination router");
+
+        vault.transferRemote{value: fees}(123, recipient, 1e18);
+    }
+
+    function testPublishPrice() public {
+        testDeposit();
+
+        uint32 blastId = 81457;
+        // add domain
+        vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
+
+        uint256 fees = vault.quotePublishTokenPrice(blastId);
+
+        vault.publishTokenPrice{value: fees}(blastId);
+
+        vm.expectRevert();
+        vault.quotePublishTokenPrice(123);
+
+        // test without lockbox
+        // deploy new vault
+        address newAddress = address(0x123);
+        vm.startPrank(newAddress);
+        XUltraLRT tmpVault = _deployXUltraLRT();
+        vm.stopPrank();
+        tmpVault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
+        vm.expectRevert("XUltraLRT: No lockbox");
+        fees = tmpVault.quotePublishTokenPrice(blastId);
+    }
+
+    function testSetAndResetSpokePool() public {
+        // only owner can set spoke pool
+        vm.expectRevert();
+        vm.prank(address(0x123));
+        vault.setMaxBridgeFeeBps(2000); // 20%
+
+        ISpokePool spokePool = ISpokePool(0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5); // eth spoke pool
+
+        vault.setSpokePool(address(spokePool));
+
+        uint256 lineaChainID = 59144;
+
+        // invalid recipient
+        vm.expectRevert("XUltraLRT: Invalid recipient");
+        vault.setAcrossChainIdRecipient(lineaChainID, address(0), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
+
+        // invalid token
+        vm.expectRevert("XUltraLRT: Invalid token");
+        vault.setAcrossChainIdRecipient(lineaChainID, address(this), address(0));
+
+        vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
+
+        // reset spoke pool
+        vault.resetAcrossChainIdRecipient(lineaChainID);
+
+        (address recipient, address token) = vault.acrossChainIdRecipient(lineaChainID);
+        // recipient reset
+        assertEq(recipient, address(0));
+        // token reset
+        assertEq(token, address(0));
+
+        // set invalid max bridge fee
+        vm.expectRevert("XUltraLRT: Invalid bridge fee");
+        vault.setMaxBridgeFeeBps(10001);
+
+        // set without harvester role
+        vm.expectRevert("XUltraLRT: Not harvester");
+        vm.prank(address(0x123));
+        vault.resetAcrossChainIdRecipient(lineaChainID); // 20%
+    }
+
+    function testInvalidBridging() public {
+        // invalid destination recipient
+        vm.expectRevert("XUltraLRT: Invalid destination recipient");
+        vault.bridgeToken(123, 1e18, 1e16, uint32(block.timestamp));
+
+        uint256 lineaChainID = 59144;
+        vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
+        // invalid amount
+        vm.expectRevert("XUltraLRT: Invalid amount");
+        vault.bridgeToken(lineaChainID, 0, 1e16, uint32(block.timestamp));
+
+        // invalid fee
+        vm.expectRevert("XUltraLRT: Invalid fees");
+        vault.bridgeToken(lineaChainID, 1e18, 0, uint32(block.timestamp));
+
+        // invalid max fees
+        vm.expectRevert("XUltraLRT: Exceeds max fees");
+        vault.bridgeToken(lineaChainID, 1e18, 100, uint32(block.timestamp));
+
+        // set max bridge fee
+        vault.setMaxBridgeFeeBps(2000); // 20%
+
+        // invalid base asset
+        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
+
+        // set base token
+        vault.setBaseAsset(address(weth));
+        // invalid spoke pool
+        vm.expectRevert("XUltraLRT: Invalid spoke pool");
+        vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
     }
 
     function testAcrossSpokePool() public {
@@ -250,6 +422,40 @@ contract XUltraLRTTest is Test {
         // assertTrue(true);
     }
 
+    function testInvalidBuyingLRT() public {
+        // invalid amount
+        vm.expectRevert("XUltraLRT: Invalid amount");
+        vault.buyLRT(0);
+
+        // invalid base asset
+        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vault.buyLRT(1e18);
+
+        // set base token
+        vault.setBaseAsset(address(weth));
+
+        // invalid lockbox
+        // deploy tmp vault without lockbox
+        address newAddress = address(0x123);
+        vm.startPrank(newAddress);
+        XUltraLRT tmpVault = _deployXUltraLRT();
+        vm.stopPrank();
+
+        tmpVault.setBaseAsset(address(weth));
+        vm.expectRevert("XUltraLRT: No lockbox");
+        tmpVault.buyLRT(1e18);
+
+        deal(address(weth), address(vault), 10 * 1e18);
+        // buy lrt
+        vault.buyLRT(10 * 1e18);
+
+        uint256 balance = ERC20(ultraEth).balanceOf(address(lockbox));
+        uint256 assets = ERC4626(ultraEth).convertToAssets(balance);
+        console2.log("balance %s", balance);
+        console2.log("assets %s", assets);
+        assertApproxEqAbs(assets, 10 * 1e18, 100);
+    }
+
     function testBuyingLRT() public {
         // prev ultra lrt balance
         console2.log("balance %s", ERC20(ultraEth).balanceOf(address(lockbox)));
@@ -261,5 +467,29 @@ contract XUltraLRTTest is Test {
         vault.buyLRT(10 * 1e18);
 
         console2.log("balance %s", ERC20(ultraEth).balanceOf(address(lockbox)));
+    }
+
+    function testingWithWstEthLRT() public {
+        // new address
+        address newAddress = address(0x123);
+        vm.startPrank(newAddress);
+        vault = _deployXUltraLRT();
+        vm.stopPrank();
+        lockbox = _deployXLockbox(ultraEths);
+        // set base asset
+        vault.setBaseAsset(address(weth));
+
+        // deal weth to the vault
+        deal(address(weth), address(vault), 10 * 1e18);
+        // buy lrt
+        vault.buyLRT(10 * 1e18);
+
+        uint256 balance = ERC20(ultraEths).balanceOf(address(lockbox));
+        uint256 assets = ERC4626(ultraEths).convertToAssets(balance);
+        console2.log("balance %s", balance);
+        console2.log("assets %s", assets);
+        uint256 wstEthToEth = IWSTETH(ERC4626(ultraEths).asset()).getStETHByWstETH(assets);
+        console2.log("wstEthToEth %s", wstEthToEth);
+        assertApproxEqAbs(wstEthToEth, 10 * 1e18, 100);
     }
 }
