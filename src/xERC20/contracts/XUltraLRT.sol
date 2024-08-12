@@ -16,9 +16,10 @@ import {IMessageRecipient} from "src/interfaces/hyperlane/IMessageRecipient.sol"
 import {XERC20} from "./XERC20.sol";
 import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
 import {XUltraLRTStorage} from "./XUltraLRTStorage.sol";
-import {IUltraLRT} from "src/xERC20/interfaces/IUltraLRT.sol";
+import {IUltraLRT} from "src/interfaces/IUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
+import {PriceFeed} from "src/feed/PriceFeed.sol";
 
 contract XUltraLRT is
     Initializable,
@@ -118,7 +119,7 @@ contract XUltraLRT is
 
     function _updatePrice(uint256 _price, uint256 _sourceTimeStamp) internal {
         // update on only valid timestamp
-        if (_sourceTimeStamp > lastPriceUpdateTimeStamp && block.timestamp > _sourceTimeStamp && _price > 0) {
+        if (_sourceTimeStamp > lastPriceUpdateTimeStamp && block.timestamp >= _sourceTimeStamp && _price > 0) {
             sharePrice = _price;
             lastPriceUpdateTimeStamp = _sourceTimeStamp;
         }
@@ -180,6 +181,18 @@ contract XUltraLRT is
         messageData = abi.encode(message);
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////// PRICE UPDATE FUNCTIONS ////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+
+    function setPriceFeed(address _priceFeed) public onlyOwner {
+        require(_priceFeed != address(0), "XUltraLRT: Invalid price feed");
+        require(lockbox != address(0), "XUltraLRT: No lockbox");
+        address _vault = address(XERC20Lockbox(payable(lockbox)).ERC20());
+        require(PriceFeed((_priceFeed)).asset() == IUltraLRT(_vault).asset(), "XUltraLRT: Invalid price feed asset");
+        priceFeed = PriceFeed(_priceFeed);
+    }
+
     function quotePublishTokenPrice(uint32 domain) public view returns (uint256 fees) {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
@@ -190,7 +203,7 @@ contract XUltraLRT is
     function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
-        mailbox.dispatch{value: 0}(domain, recipient, messageData);
+        mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
     }
 
     // normalized price update msg
@@ -200,13 +213,11 @@ contract XUltraLRT is
         virtual
         returns (bytes memory messageData, bytes32 recipient)
     {
+        require(address(priceFeed) != address(0), "XUltraLRT: Invalid price feed");
         recipient = routerMap[domain];
         require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
 
-        // check if it has lockbox
-        require(lockbox != address(0), "XUltraLRT: No lockbox");
-
-        uint256 _sharePrice = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20())).getRate();
+        uint256 _sharePrice = priceFeed.getRate();
 
         // get price per share from lockbox ba
         // send message to mint token on remote chain
@@ -244,11 +255,11 @@ contract XUltraLRT is
         require(bridgeInfo.recipient != address(0), "XUltraLRT: Invalid destination recipient");
         require(bridgeInfo.token != address(0), "XUltraLRT: Invalid destination token");
         require(amount > 0, "XUltraLRT: Invalid amount");
-        require(fees >= 0, "XUltraLRT: Invalid fees");
+        require(fees > 0, "XUltraLRT: Invalid fees");
 
         uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / 10000;
 
-        require(fees <= maxAllowedFees, "XUltraLRT: Invalid fees");
+        require(fees <= maxAllowedFees, "XUltraLRT: Exceeds max fees");
 
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
         require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");

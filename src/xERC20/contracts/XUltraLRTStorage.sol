@@ -6,6 +6,8 @@ import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {IStEth} from "src/interfaces/lido/IStEth.sol";
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
+import {PriceFeed} from "src/feed/PriceFeed.sol";
+
 contract XUltraLRTStorage {
     // enum
     enum MSG_TYPE {
@@ -65,6 +67,10 @@ contract XUltraLRTStorage {
     // 10000 = 100%
     // @dev fees paid to bridge fully consumed by the bridge protocol.
     uint256 public maxBridgeFeeBps;
+
+    // price feed
+    // price feed address
+    PriceFeed public priceFeed;
 
     // gap
     uint256[100] private __gap;
