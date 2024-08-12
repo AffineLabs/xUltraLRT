@@ -20,6 +20,9 @@ import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.so
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {PriceFeed} from "src/feed/PriceFeed.sol";
+
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
@@ -31,6 +34,8 @@ contract XUltraLRTTest is Test {
 
     address ultraEth = 0xcbC632833687DacDcc7DfaC96F6c5989381f4B47;
     address ultraEths = 0xF0a949B935e367A94cDFe0F2A54892C2BC7b2131;
+
+    PriceFeed feed; // price feed
 
     function _deployFactory() internal {
         XUltraLRT vaultImpl = new XUltraLRT();
@@ -60,6 +65,13 @@ contract XUltraLRTTest is Test {
         );
     }
 
+    function _deployPriceFeed(address _vault) internal returns (PriceFeed _feed) {
+        PriceFeed feedImpl = new PriceFeed();
+        bytes memory initData = abi.encodeCall(PriceFeed.initialize, (_vault));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(feedImpl), initData);
+        _feed = PriceFeed(address(proxy));
+    }
+
     function _deployXLockbox(address _asset) internal returns (XERC20Lockbox _lockbox) {
         _lockbox = XERC20Lockbox(payable(factory.deployLockbox(address(vault), address(_asset), false, address(this))));
     }
@@ -70,6 +82,7 @@ contract XUltraLRTTest is Test {
         _deployFactory();
         vault = _deployXUltraLRT();
         lockbox = _deployXLockbox(ultraEth);
+        feed = _deployPriceFeed(ultraEth);
 
         vault.setMailbox(address(mailbox));
     }
@@ -297,6 +310,17 @@ contract XUltraLRTTest is Test {
     function testPublishPrice() public {
         testDeposit();
 
+        // set zero price feed
+        vm.expectRevert("XUltraLRT: Invalid price feed");
+        vault.setPriceFeed(address(0));
+
+        // set feed with invalid assets
+        PriceFeed tmpFeed = _deployPriceFeed(ultraEths);
+        vm.expectRevert("XUltraLRT: Invalid price feed asset");
+        vault.setPriceFeed(address(tmpFeed));
+
+        vault.setPriceFeed(address(feed));
+
         uint32 blastId = 81457;
         // add domain
         vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
@@ -315,8 +339,12 @@ contract XUltraLRTTest is Test {
         XUltraLRT tmpVault = _deployXUltraLRT();
         vm.stopPrank();
         tmpVault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
-        vm.expectRevert("XUltraLRT: No lockbox");
+        vm.expectRevert("XUltraLRT: Invalid price feed");
         fees = tmpVault.quotePublishTokenPrice(blastId);
+
+        // now set price feed without lockbox
+        vm.expectRevert("XUltraLRT: No lockbox");
+        tmpVault.setPriceFeed(address(feed));
     }
 
     function testSetAndResetSpokePool() public {
