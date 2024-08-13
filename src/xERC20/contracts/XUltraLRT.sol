@@ -112,8 +112,17 @@ contract XUltraLRT is
         // transfer token
         baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
 
+        uint256 totalFeeBps = bridgeFeeBps + managementFeeBps;
+
+        uint256 fees = (_amount * totalFeeBps) / MAX_FEE_BPS;
+
+        // remaining assets to mint shares
+        uint256 assetsToMintShares = _amount - fees;
+
+        // accrued fees
+        accruedFees += fees;
         // mint token
-        uint256 mintAmount = ((10 ** decimals()) * _amount) / sharePrice;
+        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / sharePrice;
         _mint(receiver, mintAmount);
     }
 
@@ -242,7 +251,7 @@ contract XUltraLRT is
     }
 
     function setMaxBridgeFeeBps(uint256 _maxBridgeFeeBps) public onlyOwner {
-        require(_maxBridgeFeeBps <= 10000, "XUltraLRT: Invalid bridge fee");
+        require(_maxBridgeFeeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid bridge fee");
         maxBridgeFeeBps = _maxBridgeFeeBps;
     }
 
@@ -257,12 +266,21 @@ contract XUltraLRT is
         require(amount > 0, "XUltraLRT: Invalid amount");
         require(fees > 0, "XUltraLRT: Invalid fees");
 
-        uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / 10000;
+        uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / MAX_FEE_BPS;
 
         require(fees <= maxAllowedFees, "XUltraLRT: Exceeds max fees");
 
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
         require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");
+
+        // max tranferable amount is amount - fees <= balanceOf(address(this)) - accruedFees
+        // otherwise it might transfer from fees which is not allowed
+        require(
+            (amount + accruedFees) <= (baseAsset.balanceOf(address(this)) + fees), "XUltraLRT: Insufficient balance"
+        );
+
+        // remove fees from accrued fees
+        accruedFees = fees >= accruedFees ? 0 : accruedFees - fees;
 
         // approve
         baseAsset.safeApprove(address(acrossSpokePool), amount);
@@ -337,4 +355,40 @@ contract XUltraLRT is
 
     // receive eth
     receive() external payable {}
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////////         FEES MANAGEMENT         //////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
+    // set bridge fee bps
+    function setBridgeFeeBps(uint256 _feeBps) public onlyOwner {
+        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        bridgeFeeBps = _feeBps;
+    }
+
+    // set management fee bps
+    function setManagementFeeBps(uint256 _feeBps) public onlyOwner {
+        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        managementFeeBps = _feeBps;
+    }
+
+    // set withdrawal fee bps
+    function setWithdrawalFeeBps(uint256 _feeBps) public onlyOwner {
+        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        withdrawalFeeBps = _feeBps;
+    }
+
+    // set performance fee bps
+    function setPerformanceFeeBps(uint256 _feeBps) public onlyOwner {
+        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        performanceFeeBps = _feeBps;
+    }
+
+    // transfer fees to the owner
+    function collectFees() public onlyOwner {
+        require(accruedFees > 0, "XUltraLRT: No fees");
+        uint256 fees = accruedFees;
+        accruedFees = 0;
+        baseAsset.safeTransfer(owner(), fees);
+    }
 }
