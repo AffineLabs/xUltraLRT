@@ -201,6 +201,32 @@ contract XUltraLRTTest is Test {
         // deposit weth to the vault
     }
 
+    function testDepositWithFees() public {
+        testMsgReceivedPriceUpdate();
+
+        vault.setBridgeFeeBps(1000); // 10%
+        vault.setManagementFeeBps(1000); // 10%
+
+        uint256 totalFeesBps = vault.bridgeFeeBps() + vault.managementFeeBps();
+
+        // set base asset and  allow token deposit
+        vault.setBaseAsset(address(weth));
+        vault.allowTokenDeposit();
+
+        // get asset to this address
+        deal(address(weth), address(this), 1e18);
+
+        // allow
+        weth.approve(address(vault), 1e18);
+
+        vault.deposit(1e18, address(this));
+
+        uint256 feesPaidFees = (totalFeesBps * 1e18) / 10000;
+
+        assertEq(vault.balanceOf(address(this)), 1e18 - feesPaidFees);
+        // deposit weth to the vault
+    }
+
     function testDepositWithFailCases() public {
         // get asset to this address
         deal(address(weth), address(this), 1e18);
@@ -450,6 +476,63 @@ contract XUltraLRTTest is Test {
         // assertTrue(true);
     }
 
+    function testAcrossSpokePoolWithFees() public {
+        // set spokepool
+
+        testDepositWithFees();
+
+        vault.setMaxBridgeFeeBps(2000); // 20%
+
+        ISpokePool spokePool = ISpokePool(0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5); // eth spoke pool
+
+        vault.setSpokePool(address(spokePool));
+
+        console2.log("spoke pool %s", spokePool.fillDeadlineBuffer());
+
+        console2.log("spoke pool %s", vault.acrossSpokePool());
+
+        // set base token
+        vault.setBaseAsset(address(weth));
+
+        // deal weth to the vault
+        // deal(address(weth), address(vault), 1e18);
+
+        uint256 lineaChainID = 59144;
+
+        vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
+
+        console2.log("balance %s", weth.balanceOf(address(vault)));
+
+        uint256 accruedFees = vault.accruedFees();
+
+        vm.expectRevert("XUltraLRT: Insufficient balance");
+        vault.bridgeToken(lineaChainID, 1e18, accruedFees / 2, uint32(block.timestamp));
+
+        vault.bridgeToken(lineaChainID, 1e18, accruedFees, uint32(block.timestamp));
+
+        assertEq(weth.balanceOf(address(vault)), 0);
+        assertEq(vault.accruedFees(), 0);
+
+        // deposit again
+        // get asset to this address
+        deal(address(weth), address(this), 1e18);
+
+        // allow
+        weth.approve(address(vault), 1e18);
+
+        vault.deposit(1e18, address(this));
+
+        accruedFees = vault.accruedFees();
+
+        // increase fees to 40%
+        vault.setMaxBridgeFeeBps(4000); // 20%
+        vault.bridgeToken(lineaChainID, 1e18, accruedFees * 2, uint32(block.timestamp));
+
+        // assets and fees should be zero
+        assertEq(weth.balanceOf(address(vault)), 0);
+        assertEq(vault.accruedFees(), 0);
+    }
+
     function testInvalidBuyingLRT() public {
         // invalid amount
         vm.expectRevert("XUltraLRT: Invalid amount");
@@ -519,5 +602,41 @@ contract XUltraLRTTest is Test {
         uint256 wstEthToEth = IWSTETH(ERC4626(ultraEths).asset()).getStETHByWstETH(assets);
         console2.log("wstEthToEth %s", wstEthToEth);
         assertApproxEqAbs(wstEthToEth, 10 * 1e18, 100);
+    }
+
+    /// test set fees ///
+
+    function testSetFees() public {
+        uint256 fee = 1000; // 10%
+
+        // set bridge fee
+        vault.setBridgeFeeBps(fee);
+        assertEq(vault.bridgeFeeBps(), fee);
+
+        // set management fee
+        vault.setManagementFeeBps(fee);
+        assertEq(vault.managementFeeBps(), fee);
+
+        // set withdrawal fee
+        vault.setWithdrawalFeeBps(fee);
+        assertEq(vault.withdrawalFeeBps(), fee);
+
+        // set performance fee
+        vault.setPerformanceFeeBps(fee);
+        assertEq(vault.performanceFeeBps(), fee);
+
+        // set invalid fees
+        uint256 invalidFee = 10001;
+        vm.expectRevert("XUltraLRT: Invalid fee");
+        vault.setBridgeFeeBps(invalidFee);
+
+        vm.expectRevert("XUltraLRT: Invalid fee");
+        vault.setManagementFeeBps(invalidFee);
+
+        vm.expectRevert("XUltraLRT: Invalid fee");
+        vault.setWithdrawalFeeBps(invalidFee);
+
+        vm.expectRevert("XUltraLRT: Invalid fee");
+        vault.setPerformanceFeeBps(invalidFee);
     }
 }

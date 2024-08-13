@@ -30,6 +30,8 @@ contract XUltraLRTStorage {
 
     bytes32 public constant HARVESTER = keccak256("HARVESTER");
 
+    uint256 public constant MAX_FEE_BPS = 10000;
+
     IStEth public constant STETH = IStEth(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IWSTETH public constant WSTETH = IWSTETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
@@ -71,6 +73,20 @@ contract XUltraLRTStorage {
     // price feed
     // price feed address
     PriceFeed public priceFeed;
+
+    // bridge fee bps for bridging assets
+    uint256 public bridgeFeeBps;
+    // management fees bps for the protocol paying gas
+    uint256 public managementFeeBps;
+
+    // withdrawal fees
+    uint256 public withdrawalFeeBps;
+
+    // performance fees
+    uint256 public performanceFeeBps;
+
+    // total accrued fees
+    uint256 public accruedFees;
 
     // gap
     uint256[100] private __gap;
