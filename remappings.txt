@@ -1,3 +1,4 @@
 forge-std/=lib/forge-std/src/
 src/=src/
 script/=script/
+prb/test/=lib/prb-test/src/
