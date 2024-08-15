@@ -9,7 +9,8 @@
   "scripts": {
     "build": "forge build",
     "test": "forge test",
-    "format": "forge fmt"
+    "format": "forge fmt",
+    "coverage": "forge coverage --no-match-coverage '(script|test)'"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^5.0.2",

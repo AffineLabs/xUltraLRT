@@ -33,10 +33,18 @@ contract XUltraLRT is
     using SafeTransferLib for ERC20;
     using SafeTransferLib for ERC4626;
 
+    // disable initializers
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initialize the contract
+     * @param _name The name of the token
+     * @param _symbol The symbol of the token
+     * @param _governance The address of the governance
+     * @param _factory The address of the factory
+     */
     function initialize(string memory _name, string memory _symbol, address _governance, address _factory)
         public
         initializer
@@ -52,6 +60,9 @@ contract XUltraLRT is
         __XERC20_init(_name, _symbol, _governance, _factory);
     }
 
+    //////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////// ACCESS CONTROL FUNCTIONS ////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////
     modifier onlyGuardian() {
         require(hasRole(GUARDIAN_ROLE, msg.sender), "XUltraLRT: Not guardian");
         _;
@@ -62,30 +73,59 @@ contract XUltraLRT is
         _;
     }
 
+    /**
+     * @notice Set max price lag time in seconds
+     * @param _maxPriceLag The max price lag in seconds
+     */
     function setMaxPriceLag(uint256 _maxPriceLag) public onlyOwner {
         maxPriceLag = _maxPriceLag;
     }
 
+    /**
+     * @notice Set the mailbox contract
+     * @param _mailbox The address of the mailbox contract
+     */
     function setMailbox(address _mailbox) public onlyOwner {
         mailbox = IMailbox(_mailbox);
     }
 
+    /**
+     * @notice Allow token deposit
+     */
     function allowTokenDeposit() public onlyOwner {
         tokenDepositAllowed = 1;
     }
 
+    /**
+     * @notice Disable token deposit
+     */
     function disableTokenDeposit() public onlyOwner {
         tokenDepositAllowed = 0;
     }
 
+    /**
+     * @notice Set router for the domain
+     * @param _origin The domain
+     * @param _router The address of the router
+     */
     function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
         routerMap[_origin] = _router;
     }
 
+    /**
+     * @notice set base asset for native LRT deposit
+     * @param _baseAsset The address of the base asset
+     */
     function setBaseAsset(address _baseAsset) public onlyOwner {
         baseAsset = ERC20(_baseAsset);
     }
 
+    /**
+     * @notice handle message from mailbox
+     * @param _origin The origin domain
+     * @param _sender The sender address
+     * @param _message The message data
+     */
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override onlyMailbox {
         // check origin
         require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
@@ -102,6 +142,15 @@ contract XUltraLRT is
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////// DEPOSIT FUNCTIONS ///////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Deposit token to mint shares
+     * @param _amount The amount of token to deposit
+     * @param receiver The address of the receiver
+     */
     function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
         require(block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag, "XUltraLRT: Price not updated");
         require(_amount > 0, "XUltraLRT: Invalid amount");
@@ -126,6 +175,11 @@ contract XUltraLRT is
         _mint(receiver, mintAmount);
     }
 
+    /**
+     * @notice update share price
+     * @param _price The price of the share
+     * @param _sourceTimeStamp The timestamp of the source
+     */
     function _updatePrice(uint256 _price, uint256 _sourceTimeStamp) internal {
         // update on only valid timestamp
         if (_sourceTimeStamp > lastPriceUpdateTimeStamp && block.timestamp >= _sourceTimeStamp && _price > 0) {
@@ -134,30 +188,61 @@ contract XUltraLRT is
         }
     }
 
-    // transfer to remote chain and different address
+    ////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////// TRANSFER FUNCTIONS ////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Transfer token to remote chain
+     * @param destination The destination domain
+     * @param to The address of the receiver
+     * @param amount The amount of token to transfer
+     */
     function transferRemote(uint32 destination, address to, uint256 amount) public payable {
         // transfer
         _transferRemote(destination, to, amount, msg.value);
     }
 
-    // transfer to remote chain and same address
+    /**
+     * @notice Transfer token to remote chain
+     * @param destination The destination domain
+     * @param amount The amount of token to transfer
+     */
     function transferRemote(uint32 destination, uint256 amount) public payable {
         // transfer
         _transferRemote(destination, msg.sender, amount, msg.value);
     }
 
-    // transfer to remote chain and different address
+    /**
+     * @notice Get quote transfer token to remote chain
+     * @param destination The destination domain
+     * @param to The address of the receiver
+     * @param amount The amount of token to transfer
+     * @return fees The fees for the transfer
+     */
     function quoteTransferRemote(uint32 destination, address to, uint256 amount) public view returns (uint256 fees) {
         // transfer
         fees = _quoteTransferRemote(destination, to, amount);
     }
 
-    // transfer to remote chain and same address
+    /**
+     * @notice Get quote transfer token to remote chain
+     * @param destination The destination domain
+     * @param amount The amount of token to transfer
+     * @return fees The fees for the transfer
+     */
     function quoteTransferRemote(uint32 destination, uint256 amount) public view returns (uint256 fees) {
         // transfer
         fees = _quoteTransferRemote(destination, msg.sender, amount);
     }
 
+    /**
+     * @notice Get quote for transfer token to remote chain
+     * @param _destination The destination domain
+     * @param _to The address of the receiver
+     * @param _amount The amount of token to transfer
+     * @return fees The fees for the transfer
+     */
     function _quoteTransferRemote(uint32 _destination, address _to, uint256 _amount)
         internal
         view
@@ -168,6 +253,12 @@ contract XUltraLRT is
         fees = mailbox.quoteDispatch(_destination, recipient, messageData);
     }
 
+    /**
+     * @notice Transfer token to remote chain
+     * @param _destination The destination domain
+     * @param _to The address of the receiver
+     * @param _amount The amount of token to transfer
+     */
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
         (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
         // dispatch message
@@ -177,6 +268,14 @@ contract XUltraLRT is
         // todo dispatch event with msg id
     }
 
+    /**
+     * @notice Get transfer remote message
+     * @param _destination The destination domain
+     * @param _to The address of the receiver
+     * @param _amount The amount of token to transfer
+     * @return messageData The message data
+     * @return recipient The recipient address
+     */
     function _getTransferRemoteMsg(uint32 _destination, address _to, uint256 _amount)
         internal
         view
@@ -194,6 +293,10 @@ contract XUltraLRT is
     //////////////////////////// PRICE UPDATE FUNCTIONS ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice Set price feed contract
+     * @param _priceFeed The address of the price feed
+     */
     function setPriceFeed(address _priceFeed) public onlyOwner {
         require(_priceFeed != address(0), "XUltraLRT: Invalid price feed");
         require(lockbox != address(0), "XUltraLRT: No lockbox");
@@ -202,20 +305,33 @@ contract XUltraLRT is
         priceFeed = PriceFeed(_priceFeed);
     }
 
+    /**
+     * @notice Quote price update to destination
+     * @param domain The domain
+     * @return fees The fees for the price update
+     */
     function quotePublishTokenPrice(uint32 domain) public view returns (uint256 fees) {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
         fees = mailbox.quoteDispatch(domain, recipient, messageData);
     }
-    // publish token price lockbox
 
+    /**
+     * @notice Publish token price to destination
+     * @param domain The domain
+     */
     function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
         mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
     }
 
-    // normalized price update msg
+    /**
+     * @notice Get price publish message
+     * @param domain The domain
+     * @return messageData The message data
+     * @return recipient The recipient address
+     */
     function _getPricePublishMessage(uint32 domain)
         internal
         view
@@ -234,27 +350,54 @@ contract XUltraLRT is
         messageData = abi.encode(message);
     }
 
-    //////////////////////////// BRIDGE FUNCTIONS ////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////// BRIDGE FUNCTIONS ///////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice Set Across spoke pool contract
+     * @param _sparkPool The address of the spoke pool
+     */
     function setSpokePool(address _sparkPool) public onlyOwner {
         acrossSpokePool = _sparkPool;
     }
 
+    /**
+     * @notice Set Across destination chain recipient and allowed token
+     * @param chainId The chain id
+     * @param recipient The address of the recipient
+     * @param token The address of the token
+     */
     function setAcrossChainIdRecipient(uint256 chainId, address recipient, address token) public onlyOwner {
         require(recipient != address(0), "XUltraLRT: Invalid recipient");
         require(token != address(0), "XUltraLRT: Invalid token");
         acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
     }
 
+    /**
+     * @notice Reset Across destination chain recipient
+     * @param chainId The chain id
+     */
     function resetAcrossChainIdRecipient(uint256 chainId) public onlyHarvester {
         delete acrossChainIdRecipient[chainId];
     }
 
+    /**
+     * @notice Set max bridge fee bps
+     * @param _maxBridgeFeeBps The max bridge fee in bps
+     */
     function setMaxBridgeFeeBps(uint256 _maxBridgeFeeBps) public onlyOwner {
         require(_maxBridgeFeeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid bridge fee");
         maxBridgeFeeBps = _maxBridgeFeeBps;
     }
 
+    /**
+     * @notice Bridge token to destination chain
+     * @param destinationChainId The destination chain id
+     * @param amount The amount of token to bridge
+     * @param fees The fees for the bridge
+     * @param quoteTimestamp The quote timestamp of the fees from across API
+     */
     function bridgeToken(uint256 destinationChainId, uint256 amount, uint256 fees, uint32 quoteTimestamp)
         public
         onlyHarvester
@@ -305,6 +448,10 @@ contract XUltraLRT is
     //////////////////// UTILIZING BRIDGED ASSETS IN L1 //////////////////////
     //////////////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice Buy LRT with bridged assets
+     * @param _amount The amount of token to buy LRT
+     */
     function buyLRT(uint256 _amount) public virtual onlyHarvester {
         require(_amount > 0, "XUltraLRT: Invalid amount");
         require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
@@ -360,31 +507,45 @@ contract XUltraLRT is
     ////////////////////         FEES MANAGEMENT         //////////////////////
     ///////////////////////////////////////////////////////////////////////////
 
-    // set bridge fee bps
+    /**
+     * @notice Set bridge fee bps
+     * @param _feeBps The fee in bps
+     */
     function setBridgeFeeBps(uint256 _feeBps) public onlyOwner {
         require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
         bridgeFeeBps = _feeBps;
     }
 
-    // set management fee bps
+    /**
+     * @notice Set management fee bps
+     * @param _feeBps The fee in bps
+     */
     function setManagementFeeBps(uint256 _feeBps) public onlyOwner {
         require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
         managementFeeBps = _feeBps;
     }
 
-    // set withdrawal fee bps
+    /**
+     * @notice Set withdrawal fee bps
+     * @param _feeBps The fee in bps
+     */
     function setWithdrawalFeeBps(uint256 _feeBps) public onlyOwner {
         require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
         withdrawalFeeBps = _feeBps;
     }
 
-    // set performance fee bps
+    /**
+     * @notice Set performance fee bps
+     * @param _feeBps The fee in bps
+     */
     function setPerformanceFeeBps(uint256 _feeBps) public onlyOwner {
         require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
         performanceFeeBps = _feeBps;
     }
 
-    // transfer fees to the owner
+    /**
+     * @notice Collect fees
+     */
     function collectFees() public onlyOwner {
         require(accruedFees > 0, "XUltraLRT: No fees");
         uint256 fees = accruedFees;
