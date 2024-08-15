@@ -24,6 +24,7 @@ holesky = "https://ethereum-holesky-rpc.publicnode.com"
 bsctestnet = "https://bnb-testnet.g.alchemy.com/v2/${ALCHEMY_ETH_MAINNET_KEY}"
 blasttestnet = "https://blast-sepolia.g.alchemy.com/v2/${ALCHEMY_ETH_MAINNET_KEY}"
 basesepolia = "https://base-sepolia.g.alchemy.com/v2/${ALCHEMY_ETH_MAINNET_KEY}"
+blast = "https://blast-mainnet.g.alchemy.com/v2/${ALCHEMY_ETH_MAINNET_KEY}"
 
 [etherscan]
 ethereum = { key = "${ETHERSCAN_MAINNET_KEY}", chain = 1 }
@@ -37,8 +38,12 @@ mumbai = { key = "${POLYGONSCAN_API_KEY}", chain = 80001, url = "https://api-tes
 
 base = { key = "${BASESCAN_API_KEY}", chain = "base" , url = "https://api.basescan.org/api?"}
 base-goerli = { key = "${BASESCAN_API_KEY}", chain = 84531, url = "https://api-goerli.basescan.org/api?"}
+
 bsctestnet = { key = "${BSCSCAN_API_KEY}", chain = 97, url = "https://api-testnet.bscscan.com/api?"}
+
+blast = {key = "${BLASTSCAN_API_KEY}", chain = 81457, url = "https://api.blastscan.io/api?"}
 blasttestnet = {key = "${BLASTSCAN_API_KEY}", chain = 168587773, url = "https://api-sepolia.blastscan.io/api?"}
+
 basesepolia = {key = "${BASESCAN_API_KEY}", chain = 84532, url="https://api-sepolia.basescan.org/api?"}
 
 [profile.ci.fuzz]
