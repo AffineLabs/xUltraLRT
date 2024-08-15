@@ -37,6 +37,16 @@ interface IXERC20Factory {
     error IXERC20Factory_InvalidLength();
 
     /**
+     * @notice Reverts when a the implementation address is invalid
+     */
+    error IXERC20Factory_InvalidImplementation();
+
+    /**
+     * @notice Reverts when a the lockbox address is invalid
+     */
+    error IXERC20Factory_InvalidLockBoxAddr();
+
+    /**
      * @notice Deploys an XERC20 contract using CREATE3
      * @dev _limits and _minters must be the same length
      * @param _name The name of the token

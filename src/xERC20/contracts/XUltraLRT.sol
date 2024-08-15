@@ -361,6 +361,7 @@ contract XUltraLRT is
      * @param _sparkPool The address of the spoke pool
      */
     function setSpokePool(address _sparkPool) public onlyOwner {
+        if (_sparkPool == address(0)) revert XErrors.InvalidBridgePoolAddr();
         acrossSpokePool = _sparkPool;
     }
 
