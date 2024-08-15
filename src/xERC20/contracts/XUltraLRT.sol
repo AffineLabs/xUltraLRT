@@ -263,11 +263,12 @@ contract XUltraLRT is
      */
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
         (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
-        // dispatch message
-        // TODO: add check in case fees are low or failed.
+        // burn
         _burn(msg.sender, _amount);
-        mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
-        // todo dispatch event with msg id
+        // dispatch message
+        bytes32 msgId = mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
+        // emit event
+        emit MessageSent(_destination, recipient, msgId, messageData);
     }
 
     /**
@@ -325,7 +326,10 @@ contract XUltraLRT is
     function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
-        mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
+        bytes32 msgId = mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
+
+        // emit event
+        emit MessageSent(domain, recipient, msgId, messageData);
     }
 
     /**
@@ -443,6 +447,9 @@ contract XUltraLRT is
             0, // exclusivity deadline
             "" // message TODO: passing and handling message
         );
+
+        // emit event
+        emit TokenBridged(destinationChainId, bridgeInfo.recipient, amount, fees);
     }
 
     //////////////////////////////////////////////////////////////////////////

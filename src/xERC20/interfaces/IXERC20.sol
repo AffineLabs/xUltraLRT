@@ -34,6 +34,11 @@ interface IXERC20 {
     error IXERC20_INVALID_0_VALUE();
 
     /**
+     * @notice Reverts when the limits are too high
+     */
+    error IXERC20_LimitsTooHigh();
+
+    /**
      * @notice Contains the full minting and burning data for a particular bridge
      *
      * @param minterParams The minting parameters for the bridge

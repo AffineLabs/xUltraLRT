@@ -10,9 +10,14 @@ import {PriceFeed} from "src/feed/PriceFeed.sol";
 import {XErrors} from "src/libs/XErrors.sol";
 
 contract XUltraLRTStorage {
+    // event msg sent
+    event MessageSent(uint256 indexed chainId, bytes32 indexed recipient, bytes32 msgId, bytes message);
+    // event bridge token
+    event TokenBridged(uint256 indexed chainId, address recipient, uint256 amount, uint256 fees);
     // enum for message type
     // mint, burn, price update
     // to send cross chain messages
+
     enum MSG_TYPE {
         MINT,
         BURN,
