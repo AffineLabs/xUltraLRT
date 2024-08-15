@@ -5,7 +5,6 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
@@ -33,7 +32,6 @@ contract XUltraLRT is
     IMessageRecipient
 {
     using SafeTransferLib for ERC20;
-    using SafeTransferLib for ERC4626;
 
     // disable initializers
     constructor() {
@@ -468,7 +466,7 @@ contract XUltraLRT is
         if (lockbox == address(0)) revert XErrors.InvalidLockBoxAddr();
 
         // get lockbox token
-        ERC4626 ultraLRT = ERC4626(address(XERC20Lockbox(payable(lockbox)).ERC20()));
+        IUltraLRT ultraLRT = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20()));
 
         uint256 ultraLRTAmount = ultraLRT.balanceOf(address(this));
         // swap assets to lrt assets
