@@ -203,6 +203,29 @@ contract XUltraLRTTest is Test {
         // deposit weth to the vault
     }
 
+    function testPauseDeposit() public {
+        testMsgReceivedPriceUpdate();
+
+        // set base asset and  allow token deposit
+        vault.setBaseAsset(address(weth));
+        vault.allowTokenDeposit();
+
+        // get asset to this address
+        deal(address(weth), address(this), 1e18);
+
+        // allow
+        weth.approve(address(vault), 1e18);
+
+        vault.pause();
+        vm.expectRevert();
+        vault.deposit(1e18, address(this));
+
+        vault.unpause();
+        vault.deposit(1e18, address(this));
+        assertEq(vault.balanceOf(address(this)), 1e18);
+        // deposit weth to the vault
+    }
+
     function testDepositWithFees() public {
         testMsgReceivedPriceUpdate();
 

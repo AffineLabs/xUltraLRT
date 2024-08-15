@@ -200,7 +200,7 @@ contract XUltraLRT is
      * @param to The address of the receiver
      * @param amount The amount of token to transfer
      */
-    function transferRemote(uint32 destination, address to, uint256 amount) public payable {
+    function transferRemote(uint32 destination, address to, uint256 amount) public payable whenNotPaused {
         // transfer
         _transferRemote(destination, to, amount, msg.value);
     }
@@ -210,7 +210,7 @@ contract XUltraLRT is
      * @param destination The destination domain
      * @param amount The amount of token to transfer
      */
-    function transferRemote(uint32 destination, uint256 amount) public payable {
+    function transferRemote(uint32 destination, uint256 amount) public payable whenNotPaused {
         // transfer
         _transferRemote(destination, msg.sender, amount, msg.value);
     }
@@ -551,5 +551,23 @@ contract XUltraLRT is
         uint256 fees = accruedFees;
         accruedFees = 0;
         baseAsset.safeTransfer(owner(), fees);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////////         PAUSE FUNCTIONS         //////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Pause the contract
+     */
+    function pause() public onlyHarvester {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause the contract
+     */
+    function unpause() public onlyHarvester {
+        _unpause();
     }
 }
