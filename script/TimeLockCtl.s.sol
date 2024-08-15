@@ -24,7 +24,7 @@ contract DeployTimeLock is Script {
         proposers[0] = multisig;
         address[] memory executors = new address[](1);
         executors[0] = multisig;
-        
+
         TimelockController tlc = new TimelockController(10, proposers, executors, deployer);
 
         console2.log("TimelockController deployed at %s", address(tlc));
@@ -35,7 +35,6 @@ contract DeployTimeLock is Script {
         TimelockController tlc = TimelockController(payable(0x1C6281dd697d2dD23fA0d0eAa97764b169801852));
         tlc.grantRole(tlc.EXECUTOR_ROLE(), address(0));
     }
-
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////BLAST MAINNET/////////////////////////////
@@ -50,7 +49,7 @@ contract DeployTimeLock is Script {
         proposers[0] = multisig;
         address[] memory executors = new address[](1);
         executors[0] = multisig;
-        
+
         TimelockController tlc = new TimelockController(1, proposers, executors, deployer);
         // allow anyone to execute
         tlc.grantRole(tlc.EXECUTOR_ROLE(), address(0));

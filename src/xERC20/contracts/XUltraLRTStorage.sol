@@ -7,6 +7,7 @@ import {IStEth} from "src/interfaces/lido/IStEth.sol";
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
 import {PriceFeed} from "src/feed/PriceFeed.sol";
+import {XErrors} from "src/libs/XErrors.sol";
 
 contract XUltraLRTStorage {
     // enum for message type
@@ -107,19 +108,13 @@ contract XUltraLRTStorage {
 
     // only mailbox modifier
     modifier onlyMailbox() {
-        require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
-        _;
-    }
-
-    // only router modifier
-    modifier onlyRouter(uint32 _origin, bytes32 _sender) {
-        require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
+        if (msg.sender != address(mailbox)) revert XErrors.NotMailbox();
         _;
     }
 
     // token deposit allowed modifier
     modifier onlyTokenDepositAllowed() {
-        require(tokenDepositAllowed == 1, "XUltraLRT: Token deposit not allowed");
+        if (tokenDepositAllowed == 0) revert XErrors.TokenDepositNotAllowed();
         _;
     }
 }

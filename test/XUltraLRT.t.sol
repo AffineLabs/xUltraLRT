@@ -24,6 +24,8 @@ import {PriceFeed} from "src/feed/PriceFeed.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import {XErrors} from "src/libs/XErrors.sol";
+
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
     ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -123,7 +125,7 @@ contract XUltraLRTTest is Test {
         assertEq(vault.balanceOf(address(this)), 1e18);
 
         // handle with invalid sender
-        vm.expectRevert("XUltraLRT: Invalid origin");
+        vm.expectRevert(XErrors.InvalidMsgOrigin.selector);
         vm.prank(address(mailbox));
         vault.handle(blastId, bytes32(uint256(uint160(address(0)))), data);
     }
@@ -232,26 +234,26 @@ contract XUltraLRTTest is Test {
         deal(address(weth), address(this), 1e18);
 
         // deposit when not approved
-        vm.expectRevert("XUltraLRT: Token deposit not allowed");
+        vm.expectRevert(XErrors.TokenDepositNotAllowed.selector);
         vault.deposit(1e18, address(this));
 
         vault.allowTokenDeposit();
 
         // when price is not updated
-        vm.expectRevert("XUltraLRT: Price not updated");
+        vm.expectRevert(XErrors.NotUpdatedPrice.selector);
         vault.deposit(1e18, address(this));
         // update price
         testMsgReceivedPriceUpdate();
         // deposit zero amount
-        vm.expectRevert("XUltraLRT: Invalid amount");
+        vm.expectRevert(XErrors.InvalidAmount.selector);
         vault.deposit(0, address(this));
 
         // // deposit to zero address
-        vm.expectRevert("XUltraLRT: Invalid receiver");
+        vm.expectRevert(XErrors.InvalidReceiver.selector);
         vault.deposit(1e18, address(0));
 
         // invalid assets
-        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vm.expectRevert(XErrors.InvalidBaseAsset.selector);
         vault.deposit(1e18, address(this));
 
         // set base asset
@@ -272,7 +274,7 @@ contract XUltraLRTTest is Test {
         deal(address(weth), address(this), 1e18);
         weth.approve(address(vault), 1e18);
 
-        vm.expectRevert("XUltraLRT: Price not updated");
+        vm.expectRevert(XErrors.NotUpdatedPrice.selector);
         vault.deposit(1e18, address(this));
 
         // set price lag
@@ -285,7 +287,7 @@ contract XUltraLRTTest is Test {
         deal(address(weth), address(this), 1e18);
         weth.approve(address(vault), 1e18);
         vault.disableTokenDeposit();
-        vm.expectRevert("XUltraLRT: Token deposit not allowed");
+        vm.expectRevert(XErrors.TokenDepositNotAllowed.selector);
         vault.deposit(1e18, address(this));
     }
 
@@ -328,7 +330,7 @@ contract XUltraLRTTest is Test {
         vault.transferRemote{value: fees}(blastId, recipient, 1e18);
         assertEq(vault.balanceOf(address(this)), 0);
 
-        vm.expectRevert("XUltraLRT: Invalid destination router");
+        vm.expectRevert(XErrors.InvalidDestinationRouter.selector);
 
         vault.transferRemote{value: fees}(123, recipient, 1e18);
     }
@@ -337,12 +339,12 @@ contract XUltraLRTTest is Test {
         testDeposit();
 
         // set zero price feed
-        vm.expectRevert("XUltraLRT: Invalid price feed");
+        vm.expectRevert(XErrors.InvalidPriceFeed.selector);
         vault.setPriceFeed(address(0));
 
         // set feed with invalid assets
         PriceFeed tmpFeed = _deployPriceFeed(ultraEths);
-        vm.expectRevert("XUltraLRT: Invalid price feed asset");
+        vm.expectRevert(XErrors.InvalidPriceFeedAsset.selector);
         vault.setPriceFeed(address(tmpFeed));
 
         vault.setPriceFeed(address(feed));
@@ -365,11 +367,11 @@ contract XUltraLRTTest is Test {
         XUltraLRT tmpVault = _deployXUltraLRT();
         vm.stopPrank();
         tmpVault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
-        vm.expectRevert("XUltraLRT: Invalid price feed");
+        vm.expectRevert(XErrors.InvalidPriceFeed.selector);
         fees = tmpVault.quotePublishTokenPrice(blastId);
 
         // now set price feed without lockbox
-        vm.expectRevert("XUltraLRT: No lockbox");
+        vm.expectRevert(XErrors.InvalidLockBoxAddr.selector);
         tmpVault.setPriceFeed(address(feed));
     }
 
@@ -386,11 +388,11 @@ contract XUltraLRTTest is Test {
         uint256 lineaChainID = 59144;
 
         // invalid recipient
-        vm.expectRevert("XUltraLRT: Invalid recipient");
+        vm.expectRevert(XErrors.InvalidBridgeRecipient.selector);
         vault.setAcrossChainIdRecipient(lineaChainID, address(0), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
 
         // invalid token
-        vm.expectRevert("XUltraLRT: Invalid token");
+        vm.expectRevert(XErrors.InvalidBridgeRecipientToken.selector);
         vault.setAcrossChainIdRecipient(lineaChainID, address(this), address(0));
 
         vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
@@ -405,45 +407,45 @@ contract XUltraLRTTest is Test {
         assertEq(token, address(0));
 
         // set invalid max bridge fee
-        vm.expectRevert("XUltraLRT: Invalid bridge fee");
+        vm.expectRevert(XErrors.InvalidBridgeFeeAmount.selector);
         vault.setMaxBridgeFeeBps(10001);
 
         // set without harvester role
-        vm.expectRevert("XUltraLRT: Not harvester");
+        vm.expectRevert(XErrors.NotHarvester.selector);
         vm.prank(address(0x123));
         vault.resetAcrossChainIdRecipient(lineaChainID); // 20%
     }
 
     function testInvalidBridging() public {
         // invalid destination recipient
-        vm.expectRevert("XUltraLRT: Invalid destination recipient");
+        vm.expectRevert(XErrors.InvalidBridgeRecipient.selector);
         vault.bridgeToken(123, 1e18, 1e16, uint32(block.timestamp));
 
         uint256 lineaChainID = 59144;
         vault.setAcrossChainIdRecipient(lineaChainID, address(this), 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f);
         // invalid amount
-        vm.expectRevert("XUltraLRT: Invalid amount");
+        vm.expectRevert(XErrors.InvalidAmount.selector);
         vault.bridgeToken(lineaChainID, 0, 1e16, uint32(block.timestamp));
 
         // invalid fee
-        vm.expectRevert("XUltraLRT: Invalid fees");
+        vm.expectRevert(XErrors.InvalidBridgeFeeAmount.selector);
         vault.bridgeToken(lineaChainID, 1e18, 0, uint32(block.timestamp));
 
         // invalid max fees
-        vm.expectRevert("XUltraLRT: Exceeds max fees");
+        vm.expectRevert(XErrors.ExceedsMaxBridgeFee.selector);
         vault.bridgeToken(lineaChainID, 1e18, 100, uint32(block.timestamp));
 
         // set max bridge fee
         vault.setMaxBridgeFeeBps(2000); // 20%
 
         // invalid base asset
-        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vm.expectRevert(XErrors.InvalidBaseAsset.selector);
         vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
 
         // set base token
         vault.setBaseAsset(address(weth));
         // invalid spoke pool
-        vm.expectRevert("XUltraLRT: Invalid spoke pool");
+        vm.expectRevert(XErrors.InvalidBridgePoolAddr.selector);
         vault.bridgeToken(lineaChainID, 1e18, 1e16, uint32(block.timestamp));
     }
 
@@ -505,7 +507,7 @@ contract XUltraLRTTest is Test {
 
         uint256 accruedFees = vault.accruedFees();
 
-        vm.expectRevert("XUltraLRT: Insufficient balance");
+        vm.expectRevert(XErrors.InsufficientBalance.selector);
         vault.bridgeToken(lineaChainID, 1e18, accruedFees / 2, uint32(block.timestamp));
 
         vault.bridgeToken(lineaChainID, 1e18, accruedFees, uint32(block.timestamp));
@@ -535,11 +537,11 @@ contract XUltraLRTTest is Test {
 
     function testInvalidBuyingLRT() public {
         // invalid amount
-        vm.expectRevert("XUltraLRT: Invalid amount");
+        vm.expectRevert(XErrors.InvalidAmount.selector);
         vault.buyLRT(0);
 
         // invalid base asset
-        vm.expectRevert("XUltraLRT: Invalid base asset");
+        vm.expectRevert(XErrors.InvalidBaseAsset.selector);
         vault.buyLRT(1e18);
 
         // set base token
@@ -553,7 +555,7 @@ contract XUltraLRTTest is Test {
         vm.stopPrank();
 
         tmpVault.setBaseAsset(address(weth));
-        vm.expectRevert("XUltraLRT: No lockbox");
+        vm.expectRevert(XErrors.InvalidLockBoxAddr.selector);
         tmpVault.buyLRT(1e18);
 
         deal(address(weth), address(vault), 10 * 1e18);
@@ -627,16 +629,16 @@ contract XUltraLRTTest is Test {
 
         // set invalid fees
         uint256 invalidFee = 10001;
-        vm.expectRevert("XUltraLRT: Invalid fee");
+        vm.expectRevert(XErrors.InvalidFeeBps.selector);
         vault.setBridgeFeeBps(invalidFee);
 
-        vm.expectRevert("XUltraLRT: Invalid fee");
+        vm.expectRevert(XErrors.InvalidFeeBps.selector);
         vault.setManagementFeeBps(invalidFee);
 
-        vm.expectRevert("XUltraLRT: Invalid fee");
+        vm.expectRevert(XErrors.InvalidFeeBps.selector);
         vault.setWithdrawalFeeBps(invalidFee);
 
-        vm.expectRevert("XUltraLRT: Invalid fee");
+        vm.expectRevert(XErrors.InvalidFeeBps.selector);
         vault.setPerformanceFeeBps(invalidFee);
     }
 }

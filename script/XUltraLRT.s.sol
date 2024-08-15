@@ -75,8 +75,7 @@ contract XUltraLRTScript is Script {
 
         console2.logBytes(initData);
 
-        TransparentUpgradeableProxy proxy =
-            new TransparentUpgradeableProxy(address(vaultImpl), timelock, initData);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(vaultImpl), timelock, initData);
 
         XUltraLRT vault = XUltraLRT(payable(address(proxy)));
 
