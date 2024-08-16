@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.4 <0.9.0;
 
+import {IXERC20} from "../interfaces/IXERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 interface IXERC20Lockbox {
     /**
      * @notice Emitted when tokens are deposited into the lockbox
@@ -87,4 +90,7 @@ interface IXERC20Lockbox {
      * @param _amount The amount of tokens to redeem
      */
     function redeemByXERC20(address _to, uint256 _amount) external;
+
+    function ERC20() external view returns (IERC20);
+    function XERC20() external view returns (IXERC20);
 }
