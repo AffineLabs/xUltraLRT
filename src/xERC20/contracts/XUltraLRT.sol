@@ -57,7 +57,7 @@ contract XUltraLRT is
         _grantRole(GUARDIAN_ROLE, _governance);
         _grantRole(HARVESTER, _governance);
 
-        __XERC20_init(_name, _symbol, _governance, _factory);
+        __XERC20_init(_name, _symbol, _factory);
     }
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -133,12 +133,50 @@ contract XUltraLRT is
         Message memory message = abi.decode(_message, (Message));
         // handle message
         if (message.msgType == MSG_TYPE.MINT) {
-            // TODO: introduce limits use burn with caller
-            _mint(message.sender, message.amount);
+            _handleCrossChainMint(message.sender, message.amount);
         } else if (message.msgType == MSG_TYPE.BURN) {
             _burn(message.sender, message.amount);
         } else if (message.msgType == MSG_TYPE.PRICE_UPDATE) {
             _updatePrice(message.price, message.timestamp);
+        }
+    }
+    /**
+     * @notice Handle cross chain mint
+     * @param _sender The sender address
+     * @param _amount The amount of token to mint
+     */
+
+    function _handleCrossChainMint(address _sender, uint256 _amount) internal {
+        // mint shares for the user
+        _mint(_sender, _amount);
+        // @dev need to mint first otherwise it will revert if supply is less that new limit
+        // increase cross chain transfer limit
+        // destination transfer limit will be decreased
+        _increaseCrossChainTransferLimit(_amount);
+
+        // convert to assets if it has lockbox
+        if (lockbox != address(0)) {
+            _getLRTfromXLRT(_sender, _amount);
+        }
+    }
+
+    /**
+     * @notice provide LRT in exchange of XLRT in L1
+     * @param _sender The sender address
+     * @param _amount The amount of token to burn
+     */
+    function _getLRTfromXLRT(address _sender, uint256 _amount) internal {
+        IUltraLRT ultraLRT = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20()));
+
+        uint256 ultraLRTAmount = ultraLRT.balanceOf(lockbox);
+        // only convert if lockbox has enough lrt
+        if (_amount <= ultraLRTAmount) {
+            // withdraw asset to _sender
+            XERC20Lockbox(payable(lockbox)).redeemByXERC20(_sender, _amount);
+            // burn user xerc20
+            _burn(_sender, _amount);
+            // decrease cross chain transfer limit
+            _decreaseCrossChainTransferLimit(_amount);
         }
     }
 
@@ -261,6 +299,8 @@ contract XUltraLRT is
      */
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
         (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
+        // decrease transfer limit
+        _decreaseCrossChainTransferLimit(_amount);
         // burn
         _burn(msg.sender, _amount);
         // dispatch message
@@ -575,5 +615,32 @@ contract XUltraLRT is
      */
     function unpause() public onlyHarvester {
         _unpause();
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////////         TRANSFER LIMITS         //////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
+    modifier onlyHarvesterOrLockBox() {
+        if (!hasRole(HARVESTER, msg.sender) && msg.sender != lockbox) revert XErrors.NotHarvesterOrLockbox();
+        _;
+    }
+
+    function increaseCrossChainTransferLimit(uint256 _limitInc) public onlyHarvesterOrLockBox {
+        _increaseCrossChainTransferLimit(_limitInc);
+    }
+
+    function decreaseCrossChainTransferLimit(uint256 _limitDec) public onlyHarvesterOrLockBox {
+        _decreaseCrossChainTransferLimit(_limitDec);
+    }
+
+    function _increaseCrossChainTransferLimit(uint256 _limitInc) internal {
+        if ((crossChainTransferLimit + _limitInc) > totalSupply()) revert XErrors.InvalidTransferLimit();
+        crossChainTransferLimit += _limitInc;
+    }
+
+    function _decreaseCrossChainTransferLimit(uint256 _limitDec) internal {
+        if (crossChainTransferLimit < _limitDec) revert XErrors.InvalidTransferLimit();
+        crossChainTransferLimit -= _limitDec;
     }
 }

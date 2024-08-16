@@ -25,4 +25,6 @@ library XErrors {
     error InvalidFeeBps();
     error NotMailbox();
     error TokenDepositNotAllowed();
+    error InvalidTransferLimit();
+    error NotHarvesterOrLockbox();
 }

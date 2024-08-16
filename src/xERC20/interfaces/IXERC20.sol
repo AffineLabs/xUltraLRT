@@ -71,6 +71,8 @@ interface IXERC20 {
      */
     function setLockbox(address _lockbox) external;
 
+    function lockbox() external view returns (address);
+
     /**
      * @notice Updates the limits of any bridge
      * @dev Can only be called by the owner
@@ -127,4 +129,16 @@ interface IXERC20 {
      * @param _amount The amount of tokens being burned
      */
     function burn(address _user, uint256 _amount) external;
+
+    /**
+     * @notice cross chain increase transfer limits
+     * @param _limitInc The amount to increase the limit by
+     */
+    function increaseCrossChainTransferLimit(uint256 _limitInc) external;
+
+    /**
+     * @notice cross chain decrease transfer limits
+     * @param _limitDec The amount to decrease the limit by
+     */
+    function decreaseCrossChainTransferLimit(uint256 _limitDec) external;
 }

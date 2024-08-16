@@ -24,10 +24,7 @@ abstract contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable,
      * @param _symbol The symbol of the token
      * @param _factory The factory which deployed this contract
      */
-    function __XERC20_init(string memory _name, string memory _symbol, address _governance, address _factory)
-        internal
-        onlyInitializing
-    {
+    function __XERC20_init(string memory _name, string memory _symbol, address _factory) internal onlyInitializing {
         __ERC20_init(_name, _symbol);
         __ERC20Permit_init(_name);
 

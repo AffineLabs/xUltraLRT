@@ -136,6 +136,7 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
         }
 
         XERC20.mint(_to, _amount);
+        XERC20.increaseCrossChainTransferLimit(_amount);
         emit Deposit(_to, _amount);
     }
 
@@ -144,5 +145,20 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
      */
     receive() external payable {
         depositNative();
+    }
+
+    /**
+     * @notice Redeem ERC20 tokens by the XERC20 contract
+     *
+     * @param _to The address to send the tokens to
+     * @param _amount The amount of tokens to redeem
+     */
+    function redeemByXERC20(address _to, uint256 _amount) external {
+        // check if the caller is the XERC20 contract
+        if (msg.sender != address(XERC20)) revert IXERC20Lockbox_NotXERC20();
+        // that that xerc20 has a lockbox setup to this address
+        if (XERC20.lockbox() != address(this)) revert IXERC20Lockbox_NotLockbox();
+
+        ERC20.safeTransfer(_to, _amount);
     }
 }

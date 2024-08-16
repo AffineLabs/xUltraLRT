@@ -108,6 +108,9 @@ contract XUltraLRTStorage {
     // total accrued fees
     uint256 public accruedFees;
 
+    // transfer limits
+    uint256 public crossChainTransferLimit;
+
     // gap
     uint256[100] private __gap;
 

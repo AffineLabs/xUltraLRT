@@ -34,6 +34,16 @@ interface IXERC20Lockbox {
     error IXERC20Lockbox_WithdrawFailed();
 
     /**
+     * @notice Reverts when a user tries to call redeemByXERC20 on a non-XERC20 contract
+     */
+    error IXERC20Lockbox_NotXERC20();
+
+    /**
+     * @notice Reverts when a user tries to call redeemByXERC20 on non-XERC20 contract with non-matching lockbox contract
+     */
+    error IXERC20Lockbox_NotLockbox();
+
+    /**
      * @notice Deposit ERC20 tokens into the lockbox
      *
      * @param _amount The amount of tokens to deposit
@@ -69,4 +79,12 @@ interface IXERC20Lockbox {
      * @param _amount The amount of tokens to withdraw
      */
     function withdrawTo(address _user, uint256 _amount) external;
+
+    /**
+     * @notice Redeem ERC20 tokens by the XERC20 contract
+     *
+     * @param _to The address to send the tokens to
+     * @param _amount The amount of tokens to redeem
+     */
+    function redeemByXERC20(address _to, uint256 _amount) external;
 }
