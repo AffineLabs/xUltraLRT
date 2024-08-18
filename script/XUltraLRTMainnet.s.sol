@@ -8,6 +8,9 @@ import {XUltraLRT} from "src/xERC20/contracts/XUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
 import {XERC20Factory} from "src/xERC20/contracts/XERC20Factory.sol";
 
+import {CrossChainRouter} from "src/router/CrossChainRouter.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract XUltraLRTMainnet is Script {
@@ -20,7 +23,10 @@ contract XUltraLRTMainnet is Script {
         return deployer;
     }
 
-    // blast mainnet
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////Blast MAINNET/////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
     function deployLRT() public {
         address deployer = _start();
 
@@ -40,8 +46,8 @@ contract XUltraLRTMainnet is Script {
     function deployFactory() public {
         address deployer = _start();
 
-        address xUltraLRTImpl = 0x192B42e956b152367BB9C35B2fb4B068b6A0929a; // blast mainnet
-        address xErc20LockboxImpl = 0xD777c8Ea70381854501e447314eCFF196C69587e; // blast mainnet
+        address xUltraLRTImpl = 0x7e80886220B586942a200c92AD1273A3e128086b; // blast mainnet
+        address xErc20LockboxImpl = 0xff87595De7b24593e3B3c829B55e30A9E44236eA; // blast mainnet
         address timelock = 0xD5284028ca496B78b1867288216D20173cf0e669; // blast mainnet
 
         XERC20Factory factoryImpl = new XERC20Factory();
@@ -61,7 +67,7 @@ contract XUltraLRTMainnet is Script {
 
     function deployUltraEthSBlast() public {
         address deployer = _start();
-        XERC20Factory factory = XERC20Factory(0x3A6B57ea121fbAB06f5A7Bf0626702EcB0Db7f11);
+        XERC20Factory factory = XERC20Factory(0x792dFe3E1dad64893f3B9A0A798a5025fB375b8D);
 
         address[] memory bridges;
         uint256[] memory minterLimits;
@@ -101,8 +107,8 @@ contract XUltraLRTMainnet is Script {
     function deployFactoryEth() public {
         address deployer = _start();
 
-        address xUltraLRTImpl = 0x01aFE15C3D8E4d335b26e5FB62D9d711Df04f9Ca; // eth mainnet
-        address xErc20LockboxImpl = 0x0CCC7E8d7b820c261622AC0C56E5B3D55f030AFE; // eth mainnet
+        address xUltraLRTImpl = 0xb954d805aAf2a2c4fCe83325fC4C785DeF4A6E94; // eth mainnet
+        address xErc20LockboxImpl = 0xB9B0294e0851bEdA928b49f62F709C2b9e98A4c4; // eth mainnet
         address timelock = 0x4B21438ffff0f0B938aD64cD44B8c6ebB78ba56e; // eth mainnet timelock
 
         XERC20Factory factoryImpl = new XERC20Factory();
@@ -122,7 +128,7 @@ contract XUltraLRTMainnet is Script {
 
     function deployUltraEthSEth() public {
         address deployer = _start();
-        XERC20Factory factory = XERC20Factory(0x0b72b8a1C23B36b7D7acC8C1a387B026344395DB); // eth mainnet
+        XERC20Factory factory = XERC20Factory(0x97654BE4018A0801CA4B4678B4a1645Dd384c0fC); // eth mainnet
 
         address[] memory bridges;
         uint256[] memory minterLimits;
@@ -140,8 +146,25 @@ contract XUltraLRTMainnet is Script {
         console2.log("owner %s", XUltraLRT(payable(xErc20Addr)).owner());
     }
 
+    function deployEthRouter() public {
+        address deployer = _start();
+        address timelock = 0x4B21438ffff0f0B938aD64cD44B8c6ebB78ba56e; // eth mainnet
+
+        CrossChainRouter routerImpl = new CrossChainRouter();
+
+        console2.log("routerImpl %s", address(routerImpl));
+
+        bytes memory initData = abi.encodeCall(CrossChainRouter.initialize, (timelock));
+
+        console2.logBytes(initData);
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(routerImpl), initData);
+        CrossChainRouter router = CrossChainRouter(payable(address(proxy)));
+        console2.log("router Add %s", address(router));
+    }
+
     function convAddTo32Bytes() public {
-        address addr = 0x6f987a9495e4C75d27199490bdc12EfA48B0c7F3;
+        address addr = 0x91F822fAFc1db552e78f49941776aCB2a78fD422;
         console2.log("addr %s", addr);
         console2.logBytes32(bytes32(uint256(uint160(addr))));
     }
