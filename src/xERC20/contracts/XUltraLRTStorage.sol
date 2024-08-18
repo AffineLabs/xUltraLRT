@@ -14,6 +14,15 @@ contract XUltraLRTStorage {
     event MessageSent(uint256 indexed chainId, bytes32 indexed recipient, bytes32 msgId, bytes message);
     // event bridge token
     event TokenBridged(uint256 indexed chainId, address recipient, uint256 amount, uint256 fees);
+
+    // cross chain limit changed
+    event CrossChainTransferLimitChanged(address indexed _sender, uint256 _oldLimit, uint256 _newLimit);
+
+    // event on L1 LRT mint
+    event LRTMinted(uint256 _assetAmount, uint256 _lrtAmount);
+
+    // event on failed L1 cross-chain mint
+    event ConversionFailedXLRTtoLRT(address indexed _user, uint256 _assetAmount, uint256 _requiredAmount);
     // enum for message type
     // mint, burn, price update
     // to send cross chain messages

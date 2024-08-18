@@ -761,6 +761,9 @@ contract XUltraLRTTest is Test {
     // test the router with lockbox and Xerc20
 
     function testRouter() public {
+        // rest router lockbox
+        router.setLockbox(ultraEth, address(lockbox));
+
         uint32 blastId = 81457;
         // add domain
         vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
@@ -777,7 +780,7 @@ contract XUltraLRTTest is Test {
 
         vm.expectEmit(true, true, false, false);
         emit MessageSent(blastId, bytes32(uint256(uint160(address(this)))), "0x", "0x");
-        router.transferRemoteUltraLRT{value: fees}(ultraEth, address(lockbox), blastId, 1e18);
+        router.transferRemoteUltraLRT{value: fees}(ultraEth, blastId, 1e18);
 
         assertEq(vault.balanceOf(address(this)), 0);
         assertEq(vault.crossChainTransferLimit(), 0);

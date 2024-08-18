@@ -136,6 +136,8 @@ contract XERC20Lockbox is Initializable, IXERC20Lockbox {
         }
 
         XERC20.mint(_to, _amount);
+        // we don't expect this for L2.
+        // @dev expect lockbox will only exists in L1
         XERC20.increaseCrossChainTransferLimit(_amount);
         emit Deposit(_to, _amount);
     }

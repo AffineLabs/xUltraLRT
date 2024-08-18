@@ -109,6 +109,8 @@ contract XUltraLRT is
      * @param _router The address of the router
      */
     function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
+        // _router has to be a valid address
+        // and address has to be less than 20 byte length (160 bit)
         if (uint256(_router) > type(uint160).max) revert XErrors.InvalidRouterAddr();
         routerMap[_origin] = _router;
     }
@@ -156,6 +158,8 @@ contract XUltraLRT is
         _increaseCrossChainTransferLimit(_amount);
 
         // convert to assets if it has lockbox
+        // @dev this will only work on L1
+        // cause only L1 will have a lockbox
         if (lockbox != address(0)) {
             _getLRTfromXLRT(_sender, _amount);
         }
@@ -178,6 +182,9 @@ contract XUltraLRT is
             _burn(_sender, _amount);
             // decrease cross chain transfer limit
             _decreaseCrossChainTransferLimit(_amount);
+        } else {
+            // track the failed conversion through event for user
+            emit ConversionFailedXLRTtoLRT(_sender, ultraLRTAmount, _amount);
         }
     }
 
@@ -542,7 +549,7 @@ contract XUltraLRT is
 
         // minted lrt
         uint256 mintedLRT = ultraLRT.balanceOf(address(this)) - ultraLRTAmount;
-
+        emit LRTMinted(_amount, mintedLRT);
         // transfer the lrt to the lockbox don't need to mint as it is already minted
         ERC20(address(ultraLRT)).safeTransfer(lockbox, mintedLRT);
     }
@@ -636,12 +643,16 @@ contract XUltraLRT is
     }
 
     function _increaseCrossChainTransferLimit(uint256 _limitInc) internal {
-        if ((crossChainTransferLimit + _limitInc) > totalSupply()) revert XErrors.InvalidTransferLimit();
+        uint256 oldLimit = crossChainTransferLimit;
+        if ((oldLimit + _limitInc) > totalSupply()) revert XErrors.InvalidTransferLimit();
         crossChainTransferLimit += _limitInc;
+        emit CrossChainTransferLimitChanged(msg.sender, oldLimit, crossChainTransferLimit);
     }
 
     function _decreaseCrossChainTransferLimit(uint256 _limitDec) internal {
-        if (crossChainTransferLimit < _limitDec) revert XErrors.InvalidTransferLimit();
+        uint256 oldLimit = crossChainTransferLimit;
+        if (oldLimit < _limitDec) revert XErrors.InvalidTransferLimit();
         crossChainTransferLimit -= _limitDec;
+        emit CrossChainTransferLimitChanged(msg.sender, oldLimit, crossChainTransferLimit);
     }
 }

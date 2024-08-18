@@ -146,11 +146,12 @@ contract XUltraLRTMainnet is Script {
         console2.logBytes32(bytes32(uint256(uint160(addr))));
     }
 
-    function transferRemote() public {
+    function transferRemoteFromMainnetToBlast() public {
         address deployer = _start();
 
         XUltraLRT xLRT = XUltraLRT(payable(0x6f987a9495e4C75d27199490bdc12EfA48B0c7F3));
 
+        // blast chain id
         uint32 destination = 81457;
 
         address to = 0x25057ae9e2EBf3aa4FBf6088679125988f86d7Ad;
@@ -167,11 +168,12 @@ contract XUltraLRTMainnet is Script {
         console2.log("amount %s", amount);
     }
 
-    function transferRemoteBlast() public {
+    function transferRemoteBlastToMainnet() public {
         address deployer = _start();
 
         XUltraLRT xLRT = XUltraLRT(payable(0xB838Eb4F224c2454F2529213721500faf732bf4d));
 
+        // mainnet chain id
         uint32 destination = 1;
 
         address to = 0x25057ae9e2EBf3aa4FBf6088679125988f86d7Ad;
@@ -185,6 +187,6 @@ contract XUltraLRTMainnet is Script {
         xLRT.transferRemote{value: fees}(destination, to, amount);
 
         console2.log("fees %s", fees);
-        console2.log("amount %s", xLRT.balanceOf(deployer));
+        console2.log("amount %s", amount);
     }
 }
