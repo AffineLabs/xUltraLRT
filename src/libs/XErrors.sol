@@ -27,4 +27,5 @@ library XErrors {
     error TokenDepositNotAllowed();
     error InvalidTransferLimit();
     error NotHarvesterOrLockbox();
+    error InvalidRouterAddr();
 }

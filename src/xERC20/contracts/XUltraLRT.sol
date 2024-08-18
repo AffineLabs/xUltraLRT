@@ -109,6 +109,7 @@ contract XUltraLRT is
      * @param _router The address of the router
      */
     function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
+        if (uint256(_router) > type(uint160).max) revert XErrors.InvalidRouterAddr();
         routerMap[_origin] = _router;
     }
 

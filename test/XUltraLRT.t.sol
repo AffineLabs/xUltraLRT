@@ -18,13 +18,17 @@ import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
+import {IUltraLRT} from "src/interfaces/IUltraLRT.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {PriceFeed} from "src/feed/PriceFeed.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {CrossChainRouter} from "src/router/CrossChainRouter.sol";
 
 import {XErrors} from "src/libs/XErrors.sol";
+
+import {XUltraLRTStorage} from "src/xERC20/contracts/XUltraLRTStorage.sol";
 
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
@@ -38,6 +42,8 @@ contract XUltraLRTTest is Test {
     address ultraEths = 0xF0a949B935e367A94cDFe0F2A54892C2BC7b2131;
 
     PriceFeed feed; // price feed
+
+    CrossChainRouter router;
 
     function _deployFactory() internal {
         XUltraLRT vaultImpl = new XUltraLRT();
@@ -67,6 +73,16 @@ contract XUltraLRTTest is Test {
         );
     }
 
+    function _deployRouter() internal {
+        CrossChainRouter rImp = new CrossChainRouter();
+
+        bytes memory initData = abi.encodeWithSelector(CrossChainRouter.initialize.selector, address(this));
+
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(rImp), address(this), initData);
+
+        router = CrossChainRouter(payable(address(proxy)));
+    }
+
     function _deployPriceFeed(address _vault) internal returns (PriceFeed _feed) {
         PriceFeed feedImpl = new PriceFeed();
         bytes memory initData = abi.encodeCall(PriceFeed.initialize, (_vault));
@@ -87,11 +103,13 @@ contract XUltraLRTTest is Test {
         feed = _deployPriceFeed(ultraEth);
 
         vault.setMailbox(address(mailbox));
+
+        _deployRouter();
     }
 
     function testTransfer() public {
         // get assets to the address
-        deal(address(vault), address(this), 1e18);
+        deal(address(vault), address(this), 1e18, true);
 
         console2.log("balance %s", vault.balanceOf(address(this)));
 
@@ -99,15 +117,25 @@ contract XUltraLRTTest is Test {
         // add domain
         vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
 
+        // expect revert for transfer limit
+        vm.expectRevert(XErrors.InvalidTransferLimit.selector);
+        vault.transferRemote(blastId, 1e18);
+
+        // increase transfer limit
+        vault.increaseCrossChainTransferLimit(1e18);
+        assertEq(vault.crossChainTransferLimit(), 1e18);
+
         vault.transferRemote(blastId, 1e18);
 
         console2.log("balance %s", vault.balanceOf(address(this)));
 
         // asset should be zero after burning
         assertEq(vault.balanceOf(address(this)), 0);
+        assertEq(vault.crossChainTransferLimit(), 0);
     }
 
     function testMsgReceivedMint() public {
+        // testing without lockbox asset
         uint32 blastId = 81457;
         // add domain
         bytes32 sender = bytes32(uint256(uint160(address(this))));
@@ -118,9 +146,13 @@ contract XUltraLRTTest is Test {
 
         bytes memory data = abi.encode(sMsg);
 
+        console.log("balance 1 %s", IUltraLRT(ultraEth).balanceOf(address(this)));
+
         // send message
         vm.prank(address(mailbox));
         vault.handle(blastId, sender, data);
+
+        console.log("balance 2 %s", IUltraLRT(ultraEth).balanceOf(address(this)));
 
         assertEq(vault.balanceOf(address(this)), 1e18);
 
@@ -128,6 +160,60 @@ contract XUltraLRTTest is Test {
         vm.expectRevert(XErrors.InvalidMsgOrigin.selector);
         vm.prank(address(mailbox));
         vault.handle(blastId, bytes32(uint256(uint160(address(0)))), data);
+
+        // test transfer limit
+        assertEq(vault.crossChainTransferLimit(), 1e18);
+    }
+
+    function testMsgReceivedMintWithLockboxAsset() public {
+        // sending ultraEth to lockbox
+        deal(address(ultraEth), address(lockbox), 1e18, true);
+
+        // testing without lockbox asset
+        uint32 blastId = 81457;
+        // add domain
+        bytes32 sender = bytes32(uint256(uint160(address(this))));
+        vault.setRouter(blastId, sender);
+
+        XUltraLRTStorage.Message memory sMsg =
+            XUltraLRTStorage.Message(XUltraLRTStorage.MSG_TYPE.MINT, address(this), 1e18, 0, block.timestamp);
+
+        bytes memory data = abi.encode(sMsg);
+
+        console.log("balance 1 %s", IUltraLRT(ultraEth).balanceOf(address(this)));
+
+        // send message
+        vm.prank(address(mailbox));
+        vault.handle(blastId, sender, data);
+
+        console.log("balance 2 %s", IUltraLRT(ultraEth).balanceOf(address(this)));
+
+        assertEq(vault.balanceOf(address(this)), 0);
+
+        // handle with invalid sender
+        vm.expectRevert(XErrors.InvalidMsgOrigin.selector);
+        vm.prank(address(mailbox));
+        vault.handle(blastId, bytes32(uint256(uint160(address(0)))), data);
+
+        // test transfer limit
+        assertEq(vault.crossChainTransferLimit(), 0);
+        // user should receive ultraEth
+        assertEq(IUltraLRT(ultraEth).balanceOf(address(this)), 1e18);
+    }
+
+    // test deposit into lockbox and transfer
+    function testDepositToLockBox() public {
+        // get ultraEth to the address
+        deal(address(ultraEth), address(this), 1e18, true);
+
+        // deposit ultraEth to the lockbox
+        ERC20(ultraEth).approve(address(lockbox), 1e18);
+        lockbox.deposit(1e18);
+
+        // test xultraLRT balance
+        assertEq(vault.balanceOf(address(this)), 1e18);
+        assertEq(IUltraLRT(ultraEth).balanceOf(address(this)), 0);
+        assertEq(vault.crossChainTransferLimit(), 1e18);
     }
 
     function testMsgReceivedBurn() public {
@@ -321,7 +407,7 @@ contract XUltraLRTTest is Test {
         vault.deposit(_amount, address(this));
     }
 
-    function testTransferRemote() public {
+    function testTransferRemoteWithFees() public {
         testDeposit();
 
         uint32 blastId = 81457;
@@ -330,9 +416,12 @@ contract XUltraLRTTest is Test {
 
         uint256 fees = vault.quoteTransferRemote(blastId, 1e18);
 
+        vault.increaseCrossChainTransferLimit(1e18);
+
         vault.transferRemote{value: fees}(blastId, 1e18);
 
         assertEq(vault.balanceOf(address(this)), 0);
+        assertEq(vault.crossChainTransferLimit(), 0);
 
         _depositToVault(1e18);
 
@@ -348,10 +437,13 @@ contract XUltraLRTTest is Test {
 
         address recipient = address(123);
         // transfer remote to other address
+
         fees = vault.quoteTransferRemote(blastId, recipient, 1e18);
 
+        vault.increaseCrossChainTransferLimit(1e18);
         vault.transferRemote{value: fees}(blastId, recipient, 1e18);
         assertEq(vault.balanceOf(address(this)), 0);
+        assertEq(vault.crossChainTransferLimit(), 0);
 
         vm.expectRevert(XErrors.InvalidDestinationRouter.selector);
 
@@ -663,5 +755,33 @@ contract XUltraLRTTest is Test {
 
         vm.expectRevert(XErrors.InvalidFeeBps.selector);
         vault.setPerformanceFeeBps(invalidFee);
+    }
+
+    event MessageSent(uint256 indexed chainId, bytes32 indexed recipient, bytes32 msgId, bytes message);
+    // test the router with lockbox and Xerc20
+
+    function testRouter() public {
+        uint32 blastId = 81457;
+        // add domain
+        vault.setRouter(blastId, bytes32(uint256(uint160(address(this)))));
+
+        // get ultraEth
+        deal(address(ultraEth), address(this), 1e18, true);
+
+        // get fees
+        uint256 fees = vault.quoteTransferRemote(blastId, 1e18);
+
+        // transfer remote through router
+
+        ERC20(ultraEth).approve(address(router), 1e18);
+
+        vm.expectEmit(true, true, false, false);
+        emit MessageSent(blastId, bytes32(uint256(uint160(address(this)))), "0x", "0x");
+        router.transferRemoteUltraLRT{value: fees}(ultraEth, address(lockbox), blastId, 1e18);
+
+        assertEq(vault.balanceOf(address(this)), 0);
+        assertEq(vault.crossChainTransferLimit(), 0);
+        // lockbox ultraeth amount
+        assertEq(ERC20(ultraEth).balanceOf(address(lockbox)), 1e18);
     }
 }

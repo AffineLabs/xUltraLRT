@@ -71,12 +71,14 @@ contract CrossChainRouter is Initializable, UUPSUpgradeable, PausableUpgradeable
         // transfer ultraLRT to router
         ERC20(_ultraLRT).safeTransferFrom(msg.sender, address(this), _amount);
 
+        // approve lockbox
+        ERC20(_ultraLRT).safeApprove(_lockbox, _amount);
         // transfer to lockbox
         lockbox.deposit(_amount);
         // xLRT
         XUltraLRT xLRT = XUltraLRT(payable(address(lockbox.XERC20())));
         // transfer remote
-        xLRT.transferRemote{value: _fees}(_destination, msg.sender, _amount);
+        xLRT.transferRemote{value: _fees}(_destination, _to, _amount);
     }
 
     // receive eth
