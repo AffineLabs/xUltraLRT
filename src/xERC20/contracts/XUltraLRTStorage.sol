@@ -19,7 +19,7 @@ contract XUltraLRTStorage {
     event CrossChainTransferLimitChanged(address indexed _sender, uint256 _oldLimit, uint256 _newLimit);
 
     // event on L1 LRT mint
-    event LRTMinted(uint256 _assetAmount, uint256 _lrtAmount);
+    event L1LRTMinted(uint256 _assetAmount, uint256 _lrtAmount);
 
     // event on failed L1 cross-chain mint
     event ConversionFailedXLRTtoLRT(address indexed _user, uint256 _assetAmount, uint256 _requiredAmount);

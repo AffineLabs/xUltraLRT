@@ -549,7 +549,7 @@ contract XUltraLRT is
 
         // minted lrt
         uint256 mintedLRT = ultraLRT.balanceOf(address(this)) - ultraLRTAmount;
-        emit LRTMinted(_amount, mintedLRT);
+        emit L1LRTMinted(_amount, mintedLRT);
         // transfer the lrt to the lockbox don't need to mint as it is already minted
         ERC20(address(ultraLRT)).safeTransfer(lockbox, mintedLRT);
     }
