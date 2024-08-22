@@ -56,4 +56,31 @@ contract DeployTimeLock is Script {
 
         console2.log("TimelockController deployed at %s", address(tlc));
     }
+
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////LINEA MAINNET/////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    function deployTLCLineaMainnet() public {
+        address deployer = _start();
+        console2.log("deployer balance %s", deployer.balance);
+        address multisig = 0xf63C7b8D0094472ce95e65690D6A3039d96Ee845; // Linea mainnet multisig
+
+        address[] memory proposers = new address[](1);
+        proposers[0] = multisig;
+        address[] memory executors = new address[](1);
+        executors[0] = multisig;
+
+        TimelockController tlc = new TimelockController(1, proposers, executors, deployer);
+
+        console2.log("TimelockController deployed at %s", address(tlc));
+    }
+
+    function readTLC() public {
+        address deployer = _start();
+        TimelockController tlc = TimelockController(payable(0xe76B0c82D7657612D63bc3C5dFD3fCbA7E6DCE6c));
+        // read delay
+        console2.log("delay %s", tlc.getMinDelay());
+        tlc.grantRole(tlc.EXECUTOR_ROLE(), address(0));
+    }
 }

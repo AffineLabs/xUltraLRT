@@ -146,6 +146,19 @@ contract XUltraLRTMainnet is Script {
         console2.log("owner %s", XUltraLRT(payable(xErc20Addr)).owner());
     }
 
+    function buildConsArgs() public {
+        address xUltraLRTImpl = 0x7e80886220B586942a200c92AD1273A3e128086b; // blast mainnet
+        address xErc20LockboxImpl = 0xff87595De7b24593e3B3c829B55e30A9E44236eA; // blast mainnet
+        address timelock = 0xD5284028ca496B78b1867288216D20173cf0e669; // blast mainnet
+        address factory = 0x792dFe3E1dad64893f3B9A0A798a5025fB375b8D; // blast mainnet
+        address xERC20 = 0xbb4e01B8940E8E2b3a95cED7941969D033786FF7; // blast mainnet
+
+        bytes memory initializeBytecode =
+            abi.encodeCall(XUltraLRT.initialize, ("Affine ultraETHs 2.0", "ultraETHs", timelock, factory));
+
+        console2.logBytes(initializeBytecode);
+    }
+
     function deployEthRouter() public {
         address deployer = _start();
         address timelock = 0x4B21438ffff0f0B938aD64cD44B8c6ebB78ba56e; // eth mainnet
@@ -164,7 +177,7 @@ contract XUltraLRTMainnet is Script {
     }
 
     function convAddTo32Bytes() public {
-        address addr = 0x91F822fAFc1db552e78f49941776aCB2a78fD422;
+        address addr = 0xB838Eb4F224c2454F2529213721500faf732bf4d;
         console2.log("addr %s", addr);
         console2.logBytes32(bytes32(uint256(uint160(addr))));
     }
@@ -211,5 +224,66 @@ contract XUltraLRTMainnet is Script {
 
         console2.log("fees %s", fees);
         console2.log("amount %s", amount);
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////LINEA MAINNET/////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    function deployLRTLinea() public {
+        address deployer = _start();
+
+        XUltraLRT lrt = new XUltraLRT();
+
+        console2.log("XUltraLRT deployed at %s", address(lrt));
+    }
+
+    function deployLockboxLinea() public {
+        address deployer = _start();
+
+        XERC20Lockbox lockbox = new XERC20Lockbox();
+
+        console2.log("XERC20Lockbox deployed at %s", address(lockbox));
+    }
+
+    function deployFactoryLinea() public {
+        address deployer = _start();
+
+        address xUltraLRTImpl = 0x192B42e956b152367BB9C35B2fb4B068b6A0929a; // Linea mainnet
+        address xErc20LockboxImpl = 0xD777c8Ea70381854501e447314eCFF196C69587e; // Linea mainnet
+        address timelock = 0xe76B0c82D7657612D63bc3C5dFD3fCbA7E6DCE6c; // Linea mainnet
+
+        XERC20Factory factoryImpl = new XERC20Factory();
+
+        console2.log("factoryImpl %s", address(factoryImpl));
+
+        bytes memory initData = abi.encodeCall(XERC20Factory.initialize, (xErc20LockboxImpl, xUltraLRTImpl));
+
+        console2.logBytes(initData);
+
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(factoryImpl), timelock, initData);
+
+        XERC20Factory factory = XERC20Factory(address(proxy));
+
+        console2.log("factory %s", address(factory));
+    }
+
+    function deployUltraEthSLinea() public {
+        address deployer = _start();
+        XERC20Factory factory = XERC20Factory(0x3A6B57ea121fbAB06f5A7Bf0626702EcB0Db7f11);
+
+        address[] memory bridges;
+        uint256[] memory minterLimits;
+        uint256[] memory burnerLimits;
+
+        address timelock = 0xe76B0c82D7657612D63bc3C5dFD3fCbA7E6DCE6c; // linea mainnet
+
+        address xErc20Addr =
+            factory.deployXERC20("Affine ultraETHs 2.0", "ultraETHs", minterLimits, burnerLimits, bridges, timelock);
+
+        console2.log("xERC20 deployed at %s", xErc20Addr);
+        console2.log("name %s", XUltraLRT(payable(xErc20Addr)).name());
+        console2.log("symbol %s", XUltraLRT(payable(xErc20Addr)).symbol());
+        console2.log("owner %s", XUltraLRT(payable(xErc20Addr)).owner());
     }
 }
