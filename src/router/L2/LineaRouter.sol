@@ -28,8 +28,6 @@ contract LineaRouter is Initializable, OwnableUpgradeable, UUPSUpgradeable, Paus
         require(address(ultraLRT.baseAsset()) == address(WETH_ASSET), "LineaRouter: asset must be WETH");
     }
 
-    mapping(address => address) public vaul;
-
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function pause() public onlyOwner {
