@@ -41,4 +41,22 @@ contract PriceFeedScript is Script {
         console2.log("PriceFeed owner %s", priceFeed.owner());
         console2.log("PriceFeed getRate %s", priceFeed.getRate());
     }
+
+    function deployPriceFeedUltraEth() public {
+        address deployer = _start();
+        address ultraEth = 0xcbC632833687DacDcc7DfaC96F6c5989381f4B47;
+        PriceFeed priceFeedImpl = PriceFeed(0x8022d3b6928cBA328899C8fD29734655aDafb0f4);
+
+        bytes memory initData = abi.encodeCall(PriceFeed.initialize, (ultraEth));
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(priceFeedImpl), initData);
+
+        PriceFeed priceFeed = PriceFeed(address(proxy));
+
+        console2.log("PriceFeed deployed at %s", address(priceFeed));
+        console2.log("PriceFeed vault %s", address(priceFeed.vault()));
+        console2.log("PriceFeed asset %s", priceFeed.asset());
+        console2.log("PriceFeed owner %s", priceFeed.owner());
+        console2.log("PriceFeed getRate %s", priceFeed.getRate());
+    }
 }

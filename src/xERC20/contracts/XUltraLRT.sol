@@ -408,11 +408,11 @@ contract XUltraLRT is
 
     /**
      * @notice Set Across spoke pool contract
-     * @param _sparkPool The address of the spoke pool
+     * @param _spokePool The address of the spoke pool
      */
-    function setSpokePool(address _sparkPool) public onlyOwner {
-        if (_sparkPool == address(0)) revert XErrors.InvalidBridgePoolAddr();
-        acrossSpokePool = _sparkPool;
+    function setSpokePool(address _spokePool) public onlyOwner {
+        if (_spokePool == address(0)) revert XErrors.InvalidBridgePoolAddr();
+        acrossSpokePool = _spokePool;
     }
 
     /**

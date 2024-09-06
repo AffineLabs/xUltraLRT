@@ -1,5 +1,5 @@
 [profile.default]
-evm_version = 'Paris'
+evm_version = 'shanghai'
 src = "src"
 out = "out"
 block_timestamp = 1
