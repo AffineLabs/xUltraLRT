@@ -787,4 +787,39 @@ contract XUltraLRTTest is Test {
         // lockbox ultraeth amount
         assertEq(ERC20(ultraEth).balanceOf(address(lockbox)), 1e18);
     }
+
+    function testSetMultipleRouterAndMailbox() public {
+        // set multiple router
+        uint32[] memory domains = new uint32[](2);
+        domains[0] = 2;
+        domains[1] = 3;
+
+        address[] memory routers = new address[](2);
+        routers[0] = address(this);
+        routers[1] = makeAddr("alice");
+
+        vault.initMailbox(address(mailbox), domains, routers);
+
+        for (uint256 i = 0; i < domains.length; i++) {
+            assertEq(vault.routerMap(domains[i]), bytes32(uint256(uint160(routers[i]))));
+        }
+    }
+
+    function testInitAcross() public {
+        ISpokePool spokePool = ISpokePool(0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5); // eth spoke pool
+        uint256 maxBridgeFee = 2000; // 20%
+        uint256 lineaChainID = 59144;
+        address asset = 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f;
+
+        vault.initAcross(address(spokePool), maxBridgeFee, lineaChainID, address(this), asset);
+
+        assertEq(vault.acrossSpokePool(), address(spokePool));
+
+        assertEq(vault.maxBridgeFeeBps(), maxBridgeFee);
+
+        (address recipient, address token) = vault.acrossChainIdRecipient(lineaChainID);
+
+        assertEq(recipient, address(this));
+        assertEq(token, asset);
+    }
 }

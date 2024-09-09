@@ -28,4 +28,5 @@ library XErrors {
     error InvalidTransferLimit();
     error NotHarvesterOrLockbox();
     error InvalidRouterAddr();
+    error InvalidArrayLength();
 }

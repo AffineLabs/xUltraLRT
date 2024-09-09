@@ -111,8 +111,32 @@ contract XUltraLRT is
     function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
         // _router has to be a valid address
         // and address has to be less than 20 byte length (160 bit)
+        _setRouter(_origin, _router);
+    }
+
+    function _setRouter(uint32 _origin, bytes32 _router) internal {
         if (uint256(_router) > type(uint160).max) revert XErrors.InvalidRouterAddr();
         routerMap[_origin] = _router;
+    }
+
+    /**
+     * @notice Initialize mailbox and routers
+     * @param _mailbox The address of the mailbox
+     * @param _domains The domains
+     * @param _routers The routers
+     */
+    function initMailbox(address _mailbox, uint32[] memory _domains, address[] memory _routers) public onlyOwner {
+        if (_domains.length != _routers.length) revert XErrors.InvalidArrayLength();
+
+        mailbox = IMailbox(_mailbox);
+        uint256 chainId = block.chainid;
+        if (chainId != 1) {
+            revert XErrors.NotMailbox();
+        }
+
+        for (uint256 i = 0; i < _domains.length; i++) {
+            _setRouter(_domains[i], bytes32(uint256(uint160(_routers[i]))));
+        }
     }
 
     /**
@@ -405,6 +429,28 @@ contract XUltraLRT is
     ////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////// BRIDGE FUNCTIONS ///////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Initialize Across spoke pool contract for bridging
+     * @param _spokePool The address of the spoke pool
+     * @param _maxBridgeFeeBps The max bridge fee in bps
+     * @param chainId The chain id
+     * @param recipient The address of the recipient in chain of chainId
+     * @param token The address of the token received in chain of chainId
+     */
+    function initAcross(address _spokePool, uint256 _maxBridgeFeeBps, uint256 chainId, address recipient, address token)
+        public
+        onlyOwner
+    {
+        if (_spokePool == address(0)) revert XErrors.InvalidBridgePoolAddr();
+        if (_maxBridgeFeeBps > MAX_FEE_BPS) revert XErrors.InvalidBridgeFeeAmount();
+        if (recipient == address(0)) revert XErrors.InvalidBridgeRecipient();
+        if (token == address(0)) revert XErrors.InvalidBridgeRecipientToken();
+
+        acrossSpokePool = _spokePool;
+        maxBridgeFeeBps = _maxBridgeFeeBps;
+        acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
+    }
 
     /**
      * @notice Set Across spoke pool contract
