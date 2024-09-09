@@ -643,6 +643,18 @@ contract XUltraLRT is
         performanceFeeBps = _feeBps;
     }
 
+    function initFees(uint256 _managementFeeBps, uint256 _withdrawalFeeBps, uint256 _performanceFeeBps)
+        public
+        onlyOwner
+    {
+        if (_managementFeeBps > MAX_FEE_BPS || _withdrawalFeeBps > MAX_FEE_BPS || _performanceFeeBps > MAX_FEE_BPS) {
+            revert XErrors.InvalidFeeBps();
+        }
+        managementFeeBps = _managementFeeBps;
+        withdrawalFeeBps = _withdrawalFeeBps;
+        performanceFeeBps = _performanceFeeBps;
+    }
+
     /**
      * @notice Collect fees
      */

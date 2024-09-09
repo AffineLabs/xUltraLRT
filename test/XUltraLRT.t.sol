@@ -822,4 +822,14 @@ contract XUltraLRTTest is Test {
         assertEq(recipient, address(this));
         assertEq(token, asset);
     }
+
+    function testInitFees() public {
+        uint256 fee = 1000; // 10%
+
+        vault.initFees(fee, fee + 1, fee + 2);
+
+        assertEq(vault.managementFeeBps(), fee);
+        assertEq(vault.withdrawalFeeBps(), fee + 1);
+        assertEq(vault.performanceFeeBps(), fee + 2);
+    }
 }
