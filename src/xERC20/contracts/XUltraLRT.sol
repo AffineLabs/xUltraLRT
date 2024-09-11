@@ -21,6 +21,7 @@ import {IUltraLRT} from "src/interfaces/IUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {PriceFeed} from "src/feed/PriceFeed.sol";
+import {L2SharePriceFeed} from "src/feed/L2/L2SharePriceFeed.sol";
 
 contract XUltraLRT is
     Initializable,
@@ -222,12 +223,11 @@ contract XUltraLRT is
      * @param receiver The address of the receiver
      */
     function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
-        if (block.timestamp - lastPriceUpdateTimeStamp > maxPriceLag) revert XErrors.NotUpdatedPrice();
         if (_amount == 0) revert XErrors.InvalidAmount();
         if (receiver == address(0)) revert XErrors.InvalidReceiver();
-        if (sharePrice == 0) revert XErrors.InvalidSharePrice();
         if (address(baseAsset) == address(0)) revert XErrors.InvalidBaseAsset();
 
+        uint256 tokenPrice = getSharePrice();
         // transfer token
         baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
 
@@ -241,8 +241,28 @@ contract XUltraLRT is
         // accrued fees
         accruedFees += fees;
         // mint token
-        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / sharePrice;
+        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / tokenPrice;
         _mint(receiver, mintAmount);
+    }
+
+    function getSharePrice() public view returns (uint256) {
+        // use internal price source if available
+
+        if (block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag) {
+            if (sharePrice == 0) revert XErrors.InvalidSharePrice();
+            return sharePrice;
+        }
+        // try to get price from share price feed
+        // no share price feed
+        if (address(priceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
+
+        (uint256 _price, uint256 _sourceTimeStamp) = L2SharePriceFeed(l2SharePriceFeed).getRate();
+        
+        if(block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.InvalidPriceFeed();
+
+        if(_price == 0) revert XErrors.InvalidPriceFeed();
+
+        return _price;
     }
 
     /**
@@ -365,6 +385,13 @@ contract XUltraLRT is
     ////////////////////////////////////////////////////////////////////////////////
     //////////////////////////// PRICE UPDATE FUNCTIONS ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
+
+    function setL2SharePriceFeed(address _feed) public onlyOwner {
+        if (lockbox != address(0)) revert XErrors.InvalidLockBoxAddr();
+        // check governance
+        if(L2SharePriceFeed(_feed).owner() != owner()) revert XErrors.DifferentOwner();
+        l2SharePriceFeed = _feed;
+    }
 
     /**
      * @notice Set price feed contract

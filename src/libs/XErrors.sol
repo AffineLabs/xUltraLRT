@@ -29,4 +29,5 @@ library XErrors {
     error NotHarvesterOrLockbox();
     error InvalidRouterAddr();
     error InvalidArrayLength();
+    error DifferentOwner();
 }

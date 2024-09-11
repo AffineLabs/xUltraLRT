@@ -120,8 +120,11 @@ contract XUltraLRTStorage {
     // transfer limits
     uint256 public crossChainTransferLimit;
 
+    // L2 share price feed
+    address public l2SharePriceFeed;
     // gap
-    uint256[100] private __gap;
+    // NB: moved to 99 slot to avoid storage conflict with older deployments
+    uint256[99] private __gap;
 
     // only mailbox modifier
     modifier onlyMailbox() {
