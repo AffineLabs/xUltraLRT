@@ -76,6 +76,34 @@ contract DeployTimeLock is Script {
         console2.log("TimelockController deployed at %s", address(tlc));
     }
 
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////TAIKO MAINNET/////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    function deployTLCTaikoMainnet() public {
+        address deployer = _start();
+        console2.log("deployer balance %s", deployer.balance);
+        address multisig = 0xDB4c04e06619da3883eCE60aAA6A87acfe7d4C31; // Taiko mainnet multisig
+
+        address[] memory proposers = new address[](1);
+        proposers[0] = multisig;
+        address[] memory executors = new address[](1);
+        executors[0] = multisig;
+
+        TimelockController tlc = new TimelockController(1, proposers, executors, deployer);
+
+        console2.log("TimelockController deployed at %s", address(tlc));
+
+        // allow anyone to execute
+        tlc.grantRole(tlc.EXECUTOR_ROLE(), address(0));
+
+        // swap admin to multisig to one of the proposers
+        tlc.grantRole(tlc.DEFAULT_ADMIN_ROLE(), 0xdc956B7135AA7a99F8080e54dEf4148f8e54bCa4);
+
+        // revoke deployer
+        tlc.revokeRole(tlc.DEFAULT_ADMIN_ROLE(), deployer);
+    }
+
     function readTLC() public {
         address deployer = _start();
         TimelockController tlc = TimelockController(payable(0xe76B0c82D7657612D63bc3C5dFD3fCbA7E6DCE6c));
