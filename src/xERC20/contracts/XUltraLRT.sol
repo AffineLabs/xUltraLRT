@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -26,7 +25,6 @@ import {L2SharePriceFeed} from "src/feed/L2/L2SharePriceFeed.sol";
 contract XUltraLRT is
     Initializable,
     PausableUpgradeable,
-    OwnableUpgradeable,
     XUltraLRTStorage,
     AccessControlUpgradeable,
     XERC20,
@@ -131,7 +129,7 @@ contract XUltraLRT is
 
         mailbox = IMailbox(_mailbox);
         uint256 chainId = block.chainid;
-        if (chainId != 1) {
+        if (chainId != mailbox.localDomain()) {
             revert XErrors.NotMailbox();
         }
 
