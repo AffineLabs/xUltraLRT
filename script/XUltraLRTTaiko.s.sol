@@ -86,4 +86,38 @@ contract XUltraLRTTaiko is Script {
         console2.log("symbol %s", XUltraLRT(payable(xErc20Addr)).symbol());
         console2.log("owner %s", XUltraLRT(payable(xErc20Addr)).owner());
     }
+
+    // generate tx data
+    function genInitMailboxPropData() public {
+        XUltraLRT lrt = new XUltraLRT();
+
+        address mailbox = 0x28EFBCadA00A7ed6772b3666F3898d276e88CAe3;
+
+        uint8 totalChain = 3;
+        uint32[] memory domains = new uint32[](totalChain);
+        address[] memory routers = new address[](totalChain);
+
+        // eth receiver
+        domains[0] = 1;
+        routers[0] = 0x91F822fAFc1db552e78f49941776aCB2a78fD422;
+
+        // blast
+        domains[1] = 81457;
+        routers[1] = 0xbb4e01B8940E8E2b3a95cED7941969D033786FF7;
+
+        // linea
+        domains[2] = 59144;
+        routers[2] = 0xB838Eb4F224c2454F2529213721500faf732bf4d;
+
+        bytes memory data = abi.encodeCall(XUltraLRT.initMailbox, (mailbox, domains, routers));
+        // bytes memory data = abi.encodeCall(XUltraLRT.setWithdrawalFeeBps,(10));
+
+        console2.logBytes(data);
+    }
+
+    function convAddTo32Bytes() public {
+        address addr = address(0x5217C8F3B7fb8B6501C8FF2a4C09b14B4B08C9f9);
+        bytes32 data = bytes32(uint256(uint160(addr)));
+        console2.logBytes32(data);
+    }
 }
