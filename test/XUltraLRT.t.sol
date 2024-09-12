@@ -379,9 +379,9 @@ contract XUltraLRTTest is Test {
 
         // test with max price lag
         // change block timestamp TODO: fix this test
-        // vm.warp(block.timestamp + 1000); // 1000 seconds
-        // deal(address(weth), address(this), 1e18);
-        // weth.approve(address(vault), 1e18);
+        vm.warp(block.timestamp + 1000); // 1000 seconds
+        deal(address(weth), address(this), 1e18);
+        weth.approve(address(vault), 1e18);
 
         // vm.expectRevert(XErrors.NotUpdatedPrice.selector);
         // vault.deposit(1e18, address(this));

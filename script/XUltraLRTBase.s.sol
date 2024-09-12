@@ -16,6 +16,7 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 contract XUltraLRTBase is Script {
     address timelock = 0x535B06019dD972Cd48655F5838306dfF8E68d6FD; // blast mainnet
     bool broadcastActive;
+
     function _start() internal returns (address) {
         if (broadcastActive) {
             return address(0);
@@ -29,7 +30,7 @@ contract XUltraLRTBase is Script {
         return deployer;
     }
 
-    function deployLRT() public  returns (address) {
+    function deployLRT() public returns (address) {
         address deployer = _start();
         XUltraLRT lrt = new XUltraLRT();
 

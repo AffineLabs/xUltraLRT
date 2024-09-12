@@ -255,10 +255,10 @@ contract XUltraLRT is
         if (address(priceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
 
         (uint256 _price, uint256 _sourceTimeStamp) = L2SharePriceFeed(l2SharePriceFeed).getRate();
-        
-        if(block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.InvalidPriceFeed();
 
-        if(_price == 0) revert XErrors.InvalidPriceFeed();
+        if (block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.InvalidPriceFeed();
+
+        if (_price == 0) revert XErrors.InvalidPriceFeed();
 
         return _price;
     }
@@ -387,7 +387,7 @@ contract XUltraLRT is
     function setL2SharePriceFeed(address _feed) public onlyOwner {
         if (lockbox != address(0)) revert XErrors.InvalidLockBoxAddr();
         // check governance
-        if(L2SharePriceFeed(_feed).owner() != owner()) revert XErrors.DifferentOwner();
+        if (L2SharePriceFeed(_feed).owner() != owner()) revert XErrors.DifferentOwner();
         l2SharePriceFeed = _feed;
     }
 

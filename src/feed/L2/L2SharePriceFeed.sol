@@ -24,10 +24,7 @@ contract L2SharePriceFeed is L2SharePriceFeedStorage, Initializable, OwnableUpgr
     function getRate() external view returns (uint256, uint256) {
         (int224 value, uint32 timestamp) = ExchangeRateAdaptor(priceFeed).read();
 
-        require(
-            timestamp + 1 days > block.timestamp,
-            "Timestamp older than one day"
-        );
+        require(timestamp + 1 days > block.timestamp, "Timestamp older than one day");
         // convert int to uint
         return (uint256(uint224(value)), timestamp);
     }

@@ -6,5 +6,3 @@ contract L2SharePriceFeedStorage {
     // storage gap
     uint256[50] private __gap;
 }
-
-
