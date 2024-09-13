@@ -252,11 +252,11 @@ contract XUltraLRT is
         }
         // try to get price from share price feed
         // no share price feed
-        if (address(priceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
+        if (address(l2SharePriceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
 
         (uint256 _price, uint256 _sourceTimeStamp) = L2SharePriceFeed(l2SharePriceFeed).getRate();
 
-        if (block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.InvalidPriceFeed();
+        if (block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.NotUpdatedPrice();
 
         if (_price == 0) revert XErrors.InvalidPriceFeed();
 
@@ -385,7 +385,6 @@ contract XUltraLRT is
     ////////////////////////////////////////////////////////////////////////////////
 
     function setL2SharePriceFeed(address _feed) public onlyOwner {
-        if (lockbox != address(0)) revert XErrors.InvalidLockBoxAddr();
         // check governance
         if (L2SharePriceFeed(_feed).owner() != owner()) revert XErrors.DifferentOwner();
         l2SharePriceFeed = _feed;

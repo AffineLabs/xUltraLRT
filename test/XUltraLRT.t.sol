@@ -29,6 +29,15 @@ import {CrossChainRouter} from "src/router/CrossChainRouter.sol";
 import {XErrors} from "src/libs/XErrors.sol";
 
 import {XUltraLRTStorage} from "src/xERC20/contracts/XUltraLRTStorage.sol";
+import {L2SharePriceFeed} from "src/feed/L2/L2SharePriceFeed.sol";
+
+contract MockApi3Proxy {
+    function read() external view returns (int224 value, uint32 timestamp) {
+        value = int224(uint224(IWSTETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0).getStETHByWstETH(1e18)));
+        // set timestamp to 12h old to test the price lag
+        timestamp = uint32(block.timestamp) - 12 hours;
+    }
+}
 
 contract XUltraLRTTest is Test {
     IMailbox public mailbox = IMailbox(0xc005dc82818d67AF737725bD4bf75435d065D239);
@@ -44,6 +53,8 @@ contract XUltraLRTTest is Test {
     PriceFeed feed; // price feed
 
     CrossChainRouter router;
+
+    L2SharePriceFeed shareFeed;
 
     function _deployFactory() internal {
         XUltraLRT vaultImpl = new XUltraLRT();
@@ -90,6 +101,14 @@ contract XUltraLRTTest is Test {
         _feed = PriceFeed(address(proxy));
     }
 
+    function _deployL2SharePriceFeed() internal returns (L2SharePriceFeed _feed) {
+        MockApi3Proxy adapter = new MockApi3Proxy();
+        L2SharePriceFeed feedImpl = new L2SharePriceFeed();
+        bytes memory initData = abi.encodeCall(L2SharePriceFeed.initialize, (address(adapter), address(this)));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(feedImpl), initData);
+        _feed = L2SharePriceFeed(address(proxy));
+    }
+
     function _deployXLockbox(address _asset) internal returns (XERC20Lockbox _lockbox) {
         _lockbox = XERC20Lockbox(payable(factory.deployLockbox(address(vault), address(_asset), false, address(this))));
     }
@@ -105,6 +124,8 @@ contract XUltraLRTTest is Test {
         vault.setMailbox(address(mailbox));
 
         _deployRouter();
+
+        shareFeed = _deployL2SharePriceFeed();
     }
 
     function testTransfer() public {
@@ -831,5 +852,43 @@ contract XUltraLRTTest is Test {
         assertEq(vault.managementFeeBps(), fee);
         assertEq(vault.withdrawalFeeBps(), fee + 1);
         assertEq(vault.performanceFeeBps(), fee + 2);
+    }
+
+    function testDepositWithAPI3Pool() public {
+        // test deposit msg of hyperlane
+        testDeposit();
+
+        // warp the time to 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        // deal asset
+        deal(address(weth), address(this), 1e18);
+        // approve
+        weth.approve(address(vault), 1e18);
+        // deposit
+        // should revert
+        vm.expectRevert(XErrors.InvalidPriceFeed.selector);
+        vault.deposit(1e18, address(this));
+
+        // now set api3 share price adapter
+        vault.setL2SharePriceFeed(address(shareFeed));
+
+        // will revert due to price lag of zero
+        vm.expectRevert(XErrors.NotUpdatedPrice.selector);
+        vault.deposit(1e18, address(this));
+
+        // set price lag to 12 hours
+        vault.setMaxPriceLag(12 hours);
+
+        uint256 sharesToMint = (1e18 * (10 ** vault.decimals()))
+            / IWSTETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0).getStETHByWstETH(1e18);
+
+        uint256 shares = vault.balanceOf(address(this));
+        // deposit
+        vault.deposit(1e18, address(this));
+
+        uint256 mintedShares = vault.balanceOf(address(this)) - shares;
+
+        assertEq(mintedShares, sharesToMint);
     }
 }
