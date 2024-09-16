@@ -225,7 +225,7 @@ contract XUltraLRT is
         if (receiver == address(0)) revert XErrors.InvalidReceiver();
         if (address(baseAsset) == address(0)) revert XErrors.InvalidBaseAsset();
 
-        uint256 tokenPrice = getSharePrice();
+        uint256 _sharePrice = getSharePrice();
         // transfer token
         baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
 
@@ -239,7 +239,7 @@ contract XUltraLRT is
         // accrued fees
         accruedFees += fees;
         // mint token
-        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / tokenPrice;
+        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / _sharePrice;
         _mint(receiver, mintAmount);
     }
 
