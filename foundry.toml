@@ -43,7 +43,7 @@ polygon = { key = "${POLYGONSCAN_API_KEY}", chain = 137, url = "https://api.poly
 mumbai = { key = "${POLYGONSCAN_API_KEY}", chain = 80001, url = "https://api-testnet.polygonscan.com/api?" }
 
 
-base = { key = "${BASESCAN_API_KEY}", chain = "base" , url = "https://api.basescan.org/api?"}
+base = { key = "${BASESCAN_API_KEY}", chain = 8453 , url = "https://api.basescan.org/api?"}
 base-goerli = { key = "${BASESCAN_API_KEY}", chain = 84531, url = "https://api-goerli.basescan.org/api?"}
 
 bsctestnet = { key = "${BSCSCAN_API_KEY}", chain = 97, url = "https://api-testnet.bscscan.com/api?"}
