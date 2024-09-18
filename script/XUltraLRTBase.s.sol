@@ -10,6 +10,7 @@ import {XERC20Factory} from "src/xERC20/contracts/XERC20Factory.sol";
 
 import {CrossChainRouter} from "src/router/CrossChainRouter.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {L2Router} from "src/router/L2/L2Router.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -105,7 +106,7 @@ contract XUltraLRTBase is Script {
 
         address mailbox = 0x28EFBCadA00A7ed6772b3666F3898d276e88CAe3;
 
-        uint8 totalChain = 3;
+        uint8 totalChain = 4;
         uint32[] memory domains = new uint32[](totalChain);
         address[] memory routers = new address[](totalChain);
 
@@ -121,14 +122,22 @@ contract XUltraLRTBase is Script {
         domains[2] = 59144;
         routers[2] = 0xB838Eb4F224c2454F2529213721500faf732bf4d;
 
-        bytes memory data = abi.encodeCall(XUltraLRT.initMailbox, (mailbox, domains, routers));
+        // taiko
+        domains[3] = 167000;
+        routers[3] = 0x5217C8F3B7fb8B6501C8FF2a4C09b14B4B08C9f9;
+
+        // bytes memory data = abi.encodeCall(XUltraLRT.initMailbox, (mailbox, domains, routers));
         // bytes memory data = abi.encodeCall(XUltraLRT.setWithdrawalFeeBps,(10));
+
+        bytes memory data = abi.encodeCall(
+            XUltraLRT.setRouter, (8453, 0x00000000000000000000000014dc0ea777a87caf54e49c9375b39727e1d85b69)
+        );
 
         console2.logBytes(data);
     }
 
     function convAddTo32Bytes() public {
-        address addr = address(0x5217C8F3B7fb8B6501C8FF2a4C09b14B4B08C9f9);
+        address addr = address(0x14Dc0EA777a87CAF54E49c9375B39727e1D85B69);
         bytes32 data = bytes32(uint256(uint160(addr)));
         console2.logBytes32(data);
     }
@@ -153,5 +162,25 @@ contract XUltraLRTBase is Script {
             abi.encodeCall(XUltraLRT.initialize, ("Affine ultraETHs 2.0", "ultraETHs", timelock, factory));
 
         console2.logBytes(initializeBytecode);
+    }
+
+    function deployBaseRouter() public {
+        address deployer = _start();
+
+        XUltraLRT ultraEth = XUltraLRT(payable(0x14Dc0EA777a87CAF54E49c9375B39727e1D85B69));
+
+        address assetWeth = 0x4200000000000000000000000000000000000006;
+
+        L2Router routerImpl = new L2Router();
+
+        console2.log("Router impl deployed at %s", address(routerImpl));
+
+        bytes memory initData = abi.encodeCall(L2Router.initialize, (address(ultraEth), assetWeth));
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(routerImpl), initData);
+
+        L2Router router = L2Router(payable(address(proxy)));
+
+        console2.log("Router deployed at %s", address(router));
     }
 }
