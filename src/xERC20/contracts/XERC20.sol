@@ -17,17 +17,6 @@ abstract contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable,
 
     mapping(address => Bridge) public bridges;
 
-    // constructor(string memory _name, string memory _symbol, address _factory) ERC20Upgradeable(_name, _symbol) ERC20PermitUpgradeable(_name) {
-    //   _transferOwnership(_factory);
-    //   FACTORY = _factory;
-    // }
-
-    /// @dev Prevents implementation contract from being initialized.
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
-
     /**
      * @notice Constructs the initial config of the XERC20
      *
@@ -35,28 +24,10 @@ abstract contract XERC20 is Initializable, ERC20Upgradeable, OwnableUpgradeable,
      * @param _symbol The symbol of the token
      * @param _factory The factory which deployed this contract
      */
-    // todo: fix the governance
-    // function initialize(string memory _name, string memory _symbol, address _factory) public initializer {
-    //     __XERC20_init(_name, _symbol, msg.sender, _factory);
-    // }
-
-    /**
-     * @notice Constructs the initial config of the XERC20
-     *
-     * @param _name The name of the token
-     * @param _symbol The symbol of the token
-     * @param _factory The factory which deployed this contract
-     */
-    function __XERC20_init(string memory _name, string memory _symbol, address _governance, address _factory)
-        internal
-        onlyInitializing
-    {
+    function __XERC20_init(string memory _name, string memory _symbol, address _factory) internal onlyInitializing {
         __ERC20_init(_name, _symbol);
         __ERC20Permit_init(_name);
-        // TODO check the owner as governance
-        __Ownable_init(_governance);
 
-        _transferOwnership(_governance);
         FACTORY = _factory;
     }
 
