@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.4 <0.9.0;
+pragma solidity =0.8.20;
 
 interface IXERC20Factory {
     /**
@@ -35,6 +35,16 @@ interface IXERC20Factory {
      * @notice Reverts when a the length of arrays sent is incorrect
      */
     error IXERC20Factory_InvalidLength();
+
+    /**
+     * @notice Reverts when a the implementation address is invalid
+     */
+    error IXERC20Factory_InvalidImplementation();
+
+    /**
+     * @notice Reverts when a the lockbox address is invalid
+     */
+    error IXERC20Factory_InvalidLockBoxAddr();
 
     /**
      * @notice Deploys an XERC20 contract using CREATE3

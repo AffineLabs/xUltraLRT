@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.4 <0.9.0;
+pragma solidity =0.8.20;
+
+import {IXERC20} from "../interfaces/IXERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 interface IXERC20Lockbox {
     /**
@@ -32,6 +35,16 @@ interface IXERC20Lockbox {
      * @notice Reverts when a user tries to withdraw and the call fails
      */
     error IXERC20Lockbox_WithdrawFailed();
+
+    /**
+     * @notice Reverts when a user tries to call redeemByXERC20 on a non-XERC20 contract
+     */
+    error IXERC20Lockbox_NotXERC20();
+
+    /**
+     * @notice Reverts when a user tries to call redeemByXERC20 on non-XERC20 contract with non-matching lockbox contract
+     */
+    error IXERC20Lockbox_NotLockbox();
 
     /**
      * @notice Deposit ERC20 tokens into the lockbox
@@ -69,4 +82,15 @@ interface IXERC20Lockbox {
      * @param _amount The amount of tokens to withdraw
      */
     function withdrawTo(address _user, uint256 _amount) external;
+
+    /**
+     * @notice Redeem ERC20 tokens by the XERC20 contract
+     *
+     * @param _to The address to send the tokens to
+     * @param _amount The amount of tokens to redeem
+     */
+    function redeemByXERC20(address _to, uint256 _amount) external;
+
+    function ERC20() external view returns (IERC20);
+    function XERC20() external view returns (IXERC20);
 }

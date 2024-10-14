@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 
 import {IMessageRecipient} from "src/interfaces/hyperlane/IMessageRecipient.sol";
+
+import {XErrors} from "src/libs/XErrors.sol";
 
 import {XERC20} from "./XERC20.sol";
 import {IMailbox} from "src/interfaces/hyperlane/IMailbox.sol";
@@ -20,18 +20,17 @@ import {IUltraLRT} from "src/interfaces/IUltraLRT.sol";
 import {XERC20Lockbox} from "src/xERC20/contracts/XERC20Lockbox.sol";
 import {ISpokePool} from "src/interfaces/across/ISpokePool.sol";
 import {PriceFeed} from "src/feed/PriceFeed.sol";
+import {L2SharePriceFeed} from "src/feed/L2/L2SharePriceFeed.sol";
 
 contract XUltraLRT is
     Initializable,
     PausableUpgradeable,
-    OwnableUpgradeable,
     XUltraLRTStorage,
     AccessControlUpgradeable,
     XERC20,
     IMessageRecipient
 {
     using SafeTransferLib for ERC20;
-    using SafeTransferLib for ERC4626;
 
     // disable initializers
     constructor() {
@@ -57,19 +56,19 @@ contract XUltraLRT is
         _grantRole(GUARDIAN_ROLE, _governance);
         _grantRole(HARVESTER, _governance);
 
-        __XERC20_init(_name, _symbol, _governance, _factory);
+        __XERC20_init(_name, _symbol, _factory);
     }
 
     //////////////////////////////////////////////////////////////////////////////////
     //////////////////////////// ACCESS CONTROL FUNCTIONS ////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////
     modifier onlyGuardian() {
-        require(hasRole(GUARDIAN_ROLE, msg.sender), "XUltraLRT: Not guardian");
+        if (!hasRole(GUARDIAN_ROLE, msg.sender)) revert XErrors.NotGuardian();
         _;
     }
 
     modifier onlyHarvester() {
-        require(hasRole(HARVESTER, msg.sender), "XUltraLRT: Not harvester");
+        if (!hasRole(HARVESTER, msg.sender)) revert XErrors.NotHarvester();
         _;
     }
 
@@ -109,7 +108,34 @@ contract XUltraLRT is
      * @param _router The address of the router
      */
     function setRouter(uint32 _origin, bytes32 _router) public onlyOwner {
+        // _router has to be a valid address
+        // and address has to be less than 20 byte length (160 bit)
+        _setRouter(_origin, _router);
+    }
+
+    function _setRouter(uint32 _origin, bytes32 _router) internal {
+        if (uint256(_router) > type(uint160).max) revert XErrors.InvalidRouterAddr();
         routerMap[_origin] = _router;
+    }
+
+    /**
+     * @notice Initialize mailbox and routers
+     * @param _mailbox The address of the mailbox
+     * @param _domains The domains
+     * @param _routers The routers
+     */
+    function initMailbox(address _mailbox, uint32[] memory _domains, address[] memory _routers) public onlyOwner {
+        if (_domains.length != _routers.length) revert XErrors.InvalidArrayLength();
+
+        mailbox = IMailbox(_mailbox);
+        uint256 chainId = block.chainid;
+        if (chainId != mailbox.localDomain()) {
+            revert XErrors.NotMailbox();
+        }
+
+        for (uint256 i = 0; i < _domains.length; i++) {
+            _setRouter(_domains[i], bytes32(uint256(uint160(_routers[i]))));
+        }
     }
 
     /**
@@ -128,17 +154,60 @@ contract XUltraLRT is
      */
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable override onlyMailbox {
         // check origin
-        require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
+        if (routerMap[_origin] != _sender) revert XErrors.InvalidMsgOrigin();
         // decode message
         Message memory message = abi.decode(_message, (Message));
         // handle message
         if (message.msgType == MSG_TYPE.MINT) {
-            // TODO: introduce limits use burn with caller
-            _mint(message.sender, message.amount);
+            _handleCrossChainMint(message.sender, message.amount);
         } else if (message.msgType == MSG_TYPE.BURN) {
             _burn(message.sender, message.amount);
         } else if (message.msgType == MSG_TYPE.PRICE_UPDATE) {
             _updatePrice(message.price, message.timestamp);
+        }
+    }
+    /**
+     * @notice Handle cross chain mint
+     * @param _sender The sender address
+     * @param _amount The amount of token to mint
+     */
+
+    function _handleCrossChainMint(address _sender, uint256 _amount) internal {
+        // mint shares for the user
+        _mint(_sender, _amount);
+        // @dev need to mint first otherwise it will revert if supply is less that new limit
+        // increase cross chain transfer limit
+        // destination transfer limit will be decreased
+        _increaseCrossChainTransferLimit(_amount);
+
+        // convert to assets if it has lockbox
+        // @dev this will only work on L1
+        // cause only L1 will have a lockbox
+        if (lockbox != address(0)) {
+            _getLRTfromXLRT(_sender, _amount);
+        }
+    }
+
+    /**
+     * @notice provide LRT in exchange of XLRT in L1
+     * @param _sender The sender address
+     * @param _amount The amount of token to burn
+     */
+    function _getLRTfromXLRT(address _sender, uint256 _amount) internal {
+        IUltraLRT ultraLRT = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20()));
+
+        uint256 ultraLRTAmount = ultraLRT.balanceOf(lockbox);
+        // only convert if lockbox has enough lrt
+        if (_amount <= ultraLRTAmount) {
+            // withdraw asset to _sender
+            XERC20Lockbox(payable(lockbox)).redeemByXERC20(_sender, _amount);
+            // burn user xerc20
+            _burn(_sender, _amount);
+            // decrease cross chain transfer limit
+            _decreaseCrossChainTransferLimit(_amount);
+        } else {
+            // track the failed conversion through event for user
+            emit ConversionFailedXLRTtoLRT(_sender, ultraLRTAmount, _amount);
         }
     }
 
@@ -152,12 +221,11 @@ contract XUltraLRT is
      * @param receiver The address of the receiver
      */
     function deposit(uint256 _amount, address receiver) public whenNotPaused onlyTokenDepositAllowed {
-        require(block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag, "XUltraLRT: Price not updated");
-        require(_amount > 0, "XUltraLRT: Invalid amount");
-        require(receiver != address(0), "XUltraLRT: Invalid receiver");
-        require(sharePrice > 0, "XUltraLRT: Invalid share price");
-        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
+        if (_amount == 0) revert XErrors.InvalidAmount();
+        if (receiver == address(0)) revert XErrors.InvalidReceiver();
+        if (address(baseAsset) == address(0)) revert XErrors.InvalidBaseAsset();
 
+        uint256 _sharePrice = getSharePrice();
         // transfer token
         baseAsset.safeTransferFrom(msg.sender, address(this), _amount);
 
@@ -171,8 +239,28 @@ contract XUltraLRT is
         // accrued fees
         accruedFees += fees;
         // mint token
-        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / sharePrice;
+        uint256 mintAmount = ((10 ** decimals()) * assetsToMintShares) / _sharePrice;
         _mint(receiver, mintAmount);
+    }
+
+    function getSharePrice() public view returns (uint256) {
+        // use internal price source if available
+
+        if (block.timestamp - lastPriceUpdateTimeStamp <= maxPriceLag) {
+            if (sharePrice == 0) revert XErrors.InvalidSharePrice();
+            return sharePrice;
+        }
+        // try to get price from share price feed
+        // no share price feed
+        if (address(l2SharePriceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
+
+        (uint256 _price, uint256 _sourceTimeStamp) = L2SharePriceFeed(l2SharePriceFeed).getRate();
+
+        if (block.timestamp - _sourceTimeStamp > maxPriceLag) revert XErrors.NotUpdatedPrice();
+
+        if (_price == 0) revert XErrors.InvalidPriceFeed();
+
+        return _price;
     }
 
     /**
@@ -198,7 +286,7 @@ contract XUltraLRT is
      * @param to The address of the receiver
      * @param amount The amount of token to transfer
      */
-    function transferRemote(uint32 destination, address to, uint256 amount) public payable {
+    function transferRemote(uint32 destination, address to, uint256 amount) public payable whenNotPaused {
         // transfer
         _transferRemote(destination, to, amount, msg.value);
     }
@@ -208,7 +296,7 @@ contract XUltraLRT is
      * @param destination The destination domain
      * @param amount The amount of token to transfer
      */
-    function transferRemote(uint32 destination, uint256 amount) public payable {
+    function transferRemote(uint32 destination, uint256 amount) public payable whenNotPaused {
         // transfer
         _transferRemote(destination, msg.sender, amount, msg.value);
     }
@@ -261,11 +349,14 @@ contract XUltraLRT is
      */
     function _transferRemote(uint32 _destination, address _to, uint256 _amount, uint256 _fees) internal {
         (bytes memory messageData, bytes32 recipient) = _getTransferRemoteMsg(_destination, _to, _amount);
-        // dispatch message
-        // TODO: add check in case fees are low or failed.
+        // decrease transfer limit
+        _decreaseCrossChainTransferLimit(_amount);
+        // burn
         _burn(msg.sender, _amount);
-        mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
-        // todo dispatch event with msg id
+        // dispatch message
+        bytes32 msgId = mailbox.dispatch{value: _fees}(_destination, recipient, messageData);
+        // emit event
+        emit MessageSent(_destination, recipient, msgId, messageData);
     }
 
     /**
@@ -283,7 +374,7 @@ contract XUltraLRT is
     {
         // transfer
         recipient = routerMap[_destination];
-        require(recipient != bytes32(0), "XUltraLRT: Invalid destination router");
+        if (recipient == bytes32(0)) revert XErrors.InvalidDestinationRouter();
         // send message to mint token on remote chain
         Message memory message = Message(MSG_TYPE.MINT, _to, _amount, 0, block.timestamp);
         messageData = abi.encode(message);
@@ -293,15 +384,21 @@ contract XUltraLRT is
     //////////////////////////// PRICE UPDATE FUNCTIONS ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
 
+    function setL2SharePriceFeed(address _feed) public onlyOwner {
+        // check governance
+        if (L2SharePriceFeed(_feed).owner() != owner()) revert XErrors.DifferentOwner();
+        l2SharePriceFeed = _feed;
+    }
+
     /**
      * @notice Set price feed contract
      * @param _priceFeed The address of the price feed
      */
     function setPriceFeed(address _priceFeed) public onlyOwner {
-        require(_priceFeed != address(0), "XUltraLRT: Invalid price feed");
-        require(lockbox != address(0), "XUltraLRT: No lockbox");
+        if (_priceFeed == address(0)) revert XErrors.InvalidPriceFeed();
+        if (lockbox == address(0)) revert XErrors.InvalidLockBoxAddr();
         address _vault = address(XERC20Lockbox(payable(lockbox)).ERC20());
-        require(PriceFeed((_priceFeed)).asset() == IUltraLRT(_vault).asset(), "XUltraLRT: Invalid price feed asset");
+        if (PriceFeed((_priceFeed)).asset() != IUltraLRT(_vault).asset()) revert XErrors.InvalidPriceFeedAsset();
         priceFeed = PriceFeed(_priceFeed);
     }
 
@@ -323,7 +420,10 @@ contract XUltraLRT is
     function publishTokenPrice(uint32 domain) public payable onlyHarvester {
         (bytes memory messageData, bytes32 recipient) = _getPricePublishMessage(domain);
         // dispatch message
-        mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
+        bytes32 msgId = mailbox.dispatch{value: msg.value}(domain, recipient, messageData);
+
+        // emit event
+        emit MessageSent(domain, recipient, msgId, messageData);
     }
 
     /**
@@ -338,9 +438,9 @@ contract XUltraLRT is
         virtual
         returns (bytes memory messageData, bytes32 recipient)
     {
-        require(address(priceFeed) != address(0), "XUltraLRT: Invalid price feed");
+        if (address(priceFeed) == address(0)) revert XErrors.InvalidPriceFeed();
         recipient = routerMap[domain];
-        require(recipient != bytes32(0), "XUltraLRT: Invalid destination");
+        if (recipient == bytes32(0)) revert XErrors.InvalidMsgRecipient();
 
         uint256 _sharePrice = priceFeed.getRate();
 
@@ -355,11 +455,34 @@ contract XUltraLRT is
     ////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * @notice Set Across spoke pool contract
-     * @param _sparkPool The address of the spoke pool
+     * @notice Initialize Across spoke pool contract for bridging
+     * @param _spokePool The address of the spoke pool
+     * @param _maxBridgeFeeBps The max bridge fee in bps
+     * @param chainId The chain id
+     * @param recipient The address of the recipient in chain of chainId
+     * @param token The address of the token received in chain of chainId
      */
-    function setSpokePool(address _sparkPool) public onlyOwner {
-        acrossSpokePool = _sparkPool;
+    function initAcross(address _spokePool, uint256 _maxBridgeFeeBps, uint256 chainId, address recipient, address token)
+        public
+        onlyOwner
+    {
+        if (_spokePool == address(0)) revert XErrors.InvalidBridgePoolAddr();
+        if (_maxBridgeFeeBps > MAX_FEE_BPS) revert XErrors.InvalidBridgeFeeAmount();
+        if (recipient == address(0)) revert XErrors.InvalidBridgeRecipient();
+        if (token == address(0)) revert XErrors.InvalidBridgeRecipientToken();
+
+        acrossSpokePool = _spokePool;
+        maxBridgeFeeBps = _maxBridgeFeeBps;
+        acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
+    }
+
+    /**
+     * @notice Set Across spoke pool contract
+     * @param _spokePool The address of the spoke pool
+     */
+    function setSpokePool(address _spokePool) public onlyOwner {
+        if (_spokePool == address(0)) revert XErrors.InvalidBridgePoolAddr();
+        acrossSpokePool = _spokePool;
     }
 
     /**
@@ -369,8 +492,8 @@ contract XUltraLRT is
      * @param token The address of the token
      */
     function setAcrossChainIdRecipient(uint256 chainId, address recipient, address token) public onlyOwner {
-        require(recipient != address(0), "XUltraLRT: Invalid recipient");
-        require(token != address(0), "XUltraLRT: Invalid token");
+        if (recipient == address(0)) revert XErrors.InvalidBridgeRecipient();
+        if (token == address(0)) revert XErrors.InvalidBridgeRecipientToken();
         acrossChainIdRecipient[chainId] = BridgeRecipient(recipient, token);
     }
 
@@ -387,7 +510,7 @@ contract XUltraLRT is
      * @param _maxBridgeFeeBps The max bridge fee in bps
      */
     function setMaxBridgeFeeBps(uint256 _maxBridgeFeeBps) public onlyOwner {
-        require(_maxBridgeFeeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid bridge fee");
+        if (_maxBridgeFeeBps > MAX_FEE_BPS) revert XErrors.InvalidBridgeFeeAmount();
         maxBridgeFeeBps = _maxBridgeFeeBps;
     }
 
@@ -404,23 +527,21 @@ contract XUltraLRT is
     {
         // transfer
         BridgeRecipient memory bridgeInfo = acrossChainIdRecipient[destinationChainId];
-        require(bridgeInfo.recipient != address(0), "XUltraLRT: Invalid destination recipient");
-        require(bridgeInfo.token != address(0), "XUltraLRT: Invalid destination token");
-        require(amount > 0, "XUltraLRT: Invalid amount");
-        require(fees > 0, "XUltraLRT: Invalid fees");
+        if (bridgeInfo.recipient == address(0)) revert XErrors.InvalidBridgeRecipient();
+        if (bridgeInfo.token == address(0)) revert XErrors.InvalidBridgeRecipientToken();
+        if (amount == 0) revert XErrors.InvalidAmount();
+        if (fees == 0) revert XErrors.InvalidBridgeFeeAmount();
 
         uint256 maxAllowedFees = (amount * maxBridgeFeeBps) / MAX_FEE_BPS;
 
-        require(fees <= maxAllowedFees, "XUltraLRT: Exceeds max fees");
+        if (fees > maxAllowedFees) revert XErrors.ExceedsMaxBridgeFee();
 
-        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
-        require(address(acrossSpokePool) != address(0), "XUltraLRT: Invalid spoke pool");
+        if (address(baseAsset) == address(0)) revert XErrors.InvalidBaseAsset();
+        if (address(acrossSpokePool) == address(0)) revert XErrors.InvalidBridgePoolAddr();
 
         // max tranferable amount is amount - fees <= balanceOf(address(this)) - accruedFees
         // otherwise it might transfer from fees which is not allowed
-        require(
-            (amount + accruedFees) <= (baseAsset.balanceOf(address(this)) + fees), "XUltraLRT: Insufficient balance"
-        );
+        if ((amount + accruedFees) > (baseAsset.balanceOf(address(this)) + fees)) revert XErrors.InsufficientBalance();
 
         // remove fees from accrued fees
         accruedFees = fees >= accruedFees ? 0 : accruedFees - fees;
@@ -442,6 +563,9 @@ contract XUltraLRT is
             0, // exclusivity deadline
             "" // message TODO: passing and handling message
         );
+
+        // emit event
+        emit TokenBridged(destinationChainId, bridgeInfo.recipient, amount, fees);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -453,14 +577,14 @@ contract XUltraLRT is
      * @param _amount The amount of token to buy LRT
      */
     function buyLRT(uint256 _amount) public virtual onlyHarvester {
-        require(_amount > 0, "XUltraLRT: Invalid amount");
-        require(address(baseAsset) != address(0), "XUltraLRT: Invalid base asset");
+        if (_amount == 0) revert XErrors.InvalidAmount();
+        if (address(baseAsset) == address(0)) revert XErrors.InvalidBaseAsset();
 
         // must have lockbox
-        require(lockbox != address(0), "XUltraLRT: No lockbox");
+        if (lockbox == address(0)) revert XErrors.InvalidLockBoxAddr();
 
         // get lockbox token
-        ERC4626 ultraLRT = ERC4626(address(XERC20Lockbox(payable(lockbox)).ERC20()));
+        IUltraLRT ultraLRT = IUltraLRT(address(XERC20Lockbox(payable(lockbox)).ERC20()));
 
         uint256 ultraLRTAmount = ultraLRT.balanceOf(address(this));
         // swap assets to lrt assets
@@ -490,12 +614,12 @@ contract XUltraLRT is
             WSTETH.approve(address(ultraLRT), mintedWStEth);
             ultraLRT.deposit(mintedWStEth, address(this));
         } else {
-            revert("XUltraLRT: Invalid asset");
+            revert XErrors.InvalidLRTAsset();
         }
 
         // minted lrt
         uint256 mintedLRT = ultraLRT.balanceOf(address(this)) - ultraLRTAmount;
-
+        emit L1LRTMinted(_amount, mintedLRT);
         // transfer the lrt to the lockbox don't need to mint as it is already minted
         ERC20(address(ultraLRT)).safeTransfer(lockbox, mintedLRT);
     }
@@ -512,7 +636,7 @@ contract XUltraLRT is
      * @param _feeBps The fee in bps
      */
     function setBridgeFeeBps(uint256 _feeBps) public onlyOwner {
-        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        if (_feeBps > MAX_FEE_BPS) revert XErrors.InvalidFeeBps();
         bridgeFeeBps = _feeBps;
     }
 
@@ -521,7 +645,7 @@ contract XUltraLRT is
      * @param _feeBps The fee in bps
      */
     function setManagementFeeBps(uint256 _feeBps) public onlyOwner {
-        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        if (_feeBps > MAX_FEE_BPS) revert XErrors.InvalidFeeBps();
         managementFeeBps = _feeBps;
     }
 
@@ -530,7 +654,7 @@ contract XUltraLRT is
      * @param _feeBps The fee in bps
      */
     function setWithdrawalFeeBps(uint256 _feeBps) public onlyOwner {
-        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        if (_feeBps > MAX_FEE_BPS) revert XErrors.InvalidFeeBps();
         withdrawalFeeBps = _feeBps;
     }
 
@@ -539,8 +663,20 @@ contract XUltraLRT is
      * @param _feeBps The fee in bps
      */
     function setPerformanceFeeBps(uint256 _feeBps) public onlyOwner {
-        require(_feeBps <= MAX_FEE_BPS, "XUltraLRT: Invalid fee");
+        if (_feeBps > MAX_FEE_BPS) revert XErrors.InvalidFeeBps();
         performanceFeeBps = _feeBps;
+    }
+
+    function initFees(uint256 _managementFeeBps, uint256 _withdrawalFeeBps, uint256 _performanceFeeBps)
+        public
+        onlyOwner
+    {
+        if (_managementFeeBps > MAX_FEE_BPS || _withdrawalFeeBps > MAX_FEE_BPS || _performanceFeeBps > MAX_FEE_BPS) {
+            revert XErrors.InvalidFeeBps();
+        }
+        managementFeeBps = _managementFeeBps;
+        withdrawalFeeBps = _withdrawalFeeBps;
+        performanceFeeBps = _performanceFeeBps;
     }
 
     /**
@@ -551,5 +687,54 @@ contract XUltraLRT is
         uint256 fees = accruedFees;
         accruedFees = 0;
         baseAsset.safeTransfer(owner(), fees);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////////         PAUSE FUNCTIONS         //////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Pause the contract
+     */
+    function pause() public onlyHarvester {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause the contract
+     */
+    function unpause() public onlyHarvester {
+        _unpause();
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////////         TRANSFER LIMITS         //////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
+    modifier onlyHarvesterOrLockBox() {
+        if (!hasRole(HARVESTER, msg.sender) && msg.sender != lockbox) revert XErrors.NotHarvesterOrLockbox();
+        _;
+    }
+
+    function increaseCrossChainTransferLimit(uint256 _limitInc) public onlyHarvesterOrLockBox {
+        _increaseCrossChainTransferLimit(_limitInc);
+    }
+
+    function decreaseCrossChainTransferLimit(uint256 _limitDec) public onlyHarvesterOrLockBox {
+        _decreaseCrossChainTransferLimit(_limitDec);
+    }
+
+    function _increaseCrossChainTransferLimit(uint256 _limitInc) internal {
+        uint256 oldLimit = crossChainTransferLimit;
+        if ((oldLimit + _limitInc) > totalSupply()) revert XErrors.InvalidTransferLimit();
+        crossChainTransferLimit += _limitInc;
+        emit CrossChainTransferLimitChanged(msg.sender, oldLimit, crossChainTransferLimit);
+    }
+
+    function _decreaseCrossChainTransferLimit(uint256 _limitDec) internal {
+        uint256 oldLimit = crossChainTransferLimit;
+        if (oldLimit < _limitDec) revert XErrors.InvalidTransferLimit();
+        crossChainTransferLimit -= _limitDec;
+        emit CrossChainTransferLimitChanged(msg.sender, oldLimit, crossChainTransferLimit);
     }
 }
