@@ -32,7 +32,7 @@ contract TestPriceFeed is Test {
     function testGetRateStEth() public {
         uint256 rate = priceFeed.getRate();
         uint256 getUltraEthSharePrice = IUltraLRT(ultraEth).getRate();
-        assertApproxEqRel(rate, getUltraEthSharePrice, 0.0005e18);
+        assertApproxEqRel(rate, getUltraEthSharePrice, 0.005e18); // ChainLink spread is 0.5%
     }
 
     function testGetRateWstEth() public {
@@ -41,6 +41,6 @@ contract TestPriceFeed is Test {
         uint256 getUltraEthsSharePrice = IUltraLRT(ultraEths).getRate();
 
         uint256 stEthAmount = wstEth.getStETHByWstETH(getUltraEthsSharePrice);
-        assertApproxEqRel(rate, stEthAmount, 0.0005e18);
+        assertApproxEqRel(rate, stEthAmount, 0.005e18);
     }
 }
