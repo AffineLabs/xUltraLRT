@@ -562,6 +562,19 @@
   },
   {
     "type": "function",
+    "name": "getSharePrice",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "grantRole",
     "inputs": [
       {
@@ -640,6 +653,85 @@
   },
   {
     "type": "function",
+    "name": "initAcross",
+    "inputs": [
+      {
+        "name": "_spokePool",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_maxBridgeFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initFees",
+    "inputs": [
+      {
+        "name": "_managementFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_withdrawalFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_performanceFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initMailbox",
+    "inputs": [
+      {
+        "name": "_mailbox",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_domains",
+        "type": "uint32[]",
+        "internalType": "uint32[]"
+      },
+      {
+        "name": "_routers",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -665,6 +757,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "l2SharePriceFeed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1145,6 +1250,19 @@
   },
   {
     "type": "function",
+    "name": "setL2SharePriceFeed",
+    "inputs": [
+      {
+        "name": "_feed",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setLimits",
     "inputs": [
       {
@@ -1280,7 +1398,7 @@
     "name": "setSpokePool",
     "inputs": [
       {
-        "name": "_sparkPool",
+        "name": "_spokePool",
         "type": "address",
         "internalType": "address"
       }
@@ -1880,6 +1998,11 @@
   },
   {
     "type": "error",
+    "name": "DifferentOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ECDSAInvalidSignature",
     "inputs": []
   },
@@ -2077,6 +2200,11 @@
   {
     "type": "error",
     "name": "InvalidAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidArrayLength",
     "inputs": []
   },
   {

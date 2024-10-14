@@ -16,6 +16,9 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
+import {ExchangeRateAdaptor} from "src/API3/ExchangeRateAdaptor.sol";
+import {L2SharePriceFeed} from "src/feed/L2/L2SharePriceFeed.sol";
+
 contract XUltraLRTBase is Script {
     address timelock = 0x535B06019dD972Cd48655F5838306dfF8E68d6FD; // base mainnet
     address multisig = 0x8ACbb784Aa852268343cD8e3BD2099477E0a2F63; // base multisig
@@ -182,5 +185,32 @@ contract XUltraLRTBase is Script {
         L2Router router = L2Router(payable(address(proxy)));
 
         console2.log("Router deployed at %s", address(router));
+    }
+
+    function deployPriceFeed() public {
+        _start();
+
+        address ultraEthToWstEthFeed = 0xa65a1fBe2cE3861E8F89bB912F170fcFd5a6b84e;
+        address wStEthToStEthFeed = 0xD44cD8e42Ff375e9Fd13fEf75E82c20687D047f6;
+
+        ExchangeRateAdaptor exchangeRateAdaptor = new ExchangeRateAdaptor(ultraEthToWstEthFeed, wStEthToStEthFeed);
+
+        console2.log("ExchangeRateAdaptor deployed at %s", address(exchangeRateAdaptor));
+        (int224 value, uint32 timestamp) = exchangeRateAdaptor.read();
+        console2.log("Price: %s", value);
+
+        L2SharePriceFeed priceFeedImpl = new L2SharePriceFeed();
+
+        bytes memory initData = abi.encodeCall(L2SharePriceFeed.initialize, (address(exchangeRateAdaptor), timelock));
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(priceFeedImpl), initData);
+
+        L2SharePriceFeed priceFeed = L2SharePriceFeed(address(proxy));
+
+        console2.log("PriceFeed deployed at %s", address(priceFeed));
+
+        (uint256 price, uint256 ts) = priceFeed.getRate();
+
+        console2.log("Price: %s", price);
     }
 }
