@@ -190,22 +190,18 @@ contract XUltraLRTBase is Script {
     function deployPriceFeed() public {
         _start();
 
-        address ultraEthToWstEthFeed = 0xa65a1fBe2cE3861E8F89bB912F170fcFd5a6b84e;
-        address wStEthToStEthFeed = 0xD44cD8e42Ff375e9Fd13fEf75E82c20687D047f6;
+        // address ultraEthToWstEthFeed = 0xa65a1fBe2cE3861E8F89bB912F170fcFd5a6b84e;
+        // address wStEthToStEthFeed = 0xD44cD8e42Ff375e9Fd13fEf75E82c20687D047f6;
 
-        ExchangeRateAdaptor exchangeRateAdaptor = new ExchangeRateAdaptor(ultraEthToWstEthFeed, wStEthToStEthFeed);
+        // ExchangeRateAdaptor exchangeRateAdaptor = new ExchangeRateAdaptor(ultraEthToWstEthFeed, wStEthToStEthFeed);
 
-        console2.log("ExchangeRateAdaptor deployed at %s", address(exchangeRateAdaptor));
-        (int224 value, uint32 timestamp) = exchangeRateAdaptor.read();
-        console2.log("Price: %s", value);
+        // console2.log("ExchangeRateAdaptor deployed at %s", address(exchangeRateAdaptor));
+        // (int224 value, uint32 timestamp) = exchangeRateAdaptor.read();
+        // console2.log("Price: %s", value);
 
-        L2SharePriceFeed priceFeedImpl = new L2SharePriceFeed();
+        address exchangeRateAdaptor = 0xb90973421e3B6bB342838989C86278d4601D42f3;
 
-        bytes memory initData = abi.encodeCall(L2SharePriceFeed.initialize, (address(exchangeRateAdaptor), timelock));
-
-        ERC1967Proxy proxy = new ERC1967Proxy(address(priceFeedImpl), initData);
-
-        L2SharePriceFeed priceFeed = L2SharePriceFeed(address(proxy));
+        L2SharePriceFeed priceFeed = new L2SharePriceFeed(address(exchangeRateAdaptor), timelock);
 
         console2.log("PriceFeed deployed at %s", address(priceFeed));
 

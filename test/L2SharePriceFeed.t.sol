@@ -3,7 +3,6 @@ pragma solidity =0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IUltraLRT} from "src/interfaces/IUltraLRT.sol";
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
@@ -18,10 +17,7 @@ contract TestL2SharePriceFeed is Test {
     address adapter = 0x40bd86CC2D5279c1eB9d56403AD198609B6cf58f;
 
     function _deployPriceFeed() internal returns (L2SharePriceFeed _feed) {
-        L2SharePriceFeed feedImpl = new L2SharePriceFeed();
-        bytes memory initData = abi.encodeCall(L2SharePriceFeed.initialize, (adapter, address(this)));
-        ERC1967Proxy proxy = new ERC1967Proxy(address(feedImpl), initData);
-        _feed = L2SharePriceFeed(address(proxy));
+        _feed = new L2SharePriceFeed(adapter, address(this));
     }
 
     function setUp() public {

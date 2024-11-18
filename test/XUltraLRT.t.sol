@@ -103,10 +103,7 @@ contract XUltraLRTTest is Test {
 
     function _deployL2SharePriceFeed() internal returns (L2SharePriceFeed _feed) {
         MockApi3Proxy adapter = new MockApi3Proxy();
-        L2SharePriceFeed feedImpl = new L2SharePriceFeed();
-        bytes memory initData = abi.encodeCall(L2SharePriceFeed.initialize, (address(adapter), address(this)));
-        ERC1967Proxy proxy = new ERC1967Proxy(address(feedImpl), initData);
-        _feed = L2SharePriceFeed(address(proxy));
+        _feed = new L2SharePriceFeed(address(adapter), address(this));
     }
 
     function _deployXLockbox(address _asset) internal returns (XERC20Lockbox _lockbox) {
