@@ -50,6 +50,9 @@ contract XERC20Factory is Initializable, IXERC20Factory {
      * @param _xerc20Implementation The address of the implementation contract for any new xerc20s
      */
     function initialize(address _lockboxImplementation, address _xerc20Implementation) public initializer {
+        if (_lockboxImplementation == address(0) || _xerc20Implementation == address(0)) {
+            revert IXERC20Factory_InvalidImplementation();
+        }
         lockboxImplementation = _lockboxImplementation;
         xerc20Implementation = _xerc20Implementation;
     }
@@ -177,6 +180,10 @@ contract XERC20Factory is Initializable, IXERC20Factory {
             abi.encodePacked(_creation, abi.encode(lockboxImplementation, _proxyAdmin, initializeBytecode));
 
         _lockbox = payable(CREATE3.deploy(_salt, _bytecode, 0));
+
+        if (_lockbox == address(0)) {
+            revert IXERC20Factory_InvalidLockBoxAddr();
+        }
 
         XUltraLRT(payable(_xerc20)).setLockbox(address(_lockbox));
         EnumerableSet.add(_lockboxRegistryArray, _lockbox);

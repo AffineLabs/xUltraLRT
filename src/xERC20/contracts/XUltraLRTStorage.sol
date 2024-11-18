@@ -7,11 +7,26 @@ import {IStEth} from "src/interfaces/lido/IStEth.sol";
 import {IWSTETH} from "src/interfaces/lido/IWSTETH.sol";
 
 import {PriceFeed} from "src/feed/PriceFeed.sol";
+import {XErrors} from "src/libs/XErrors.sol";
 
 contract XUltraLRTStorage {
+    // event msg sent
+    event MessageSent(uint256 indexed chainId, bytes32 indexed recipient, bytes32 msgId, bytes message);
+    // event bridge token
+    event TokenBridged(uint256 indexed chainId, address recipient, uint256 amount, uint256 fees);
+
+    // cross chain limit changed
+    event CrossChainTransferLimitChanged(address indexed _sender, uint256 _oldLimit, uint256 _newLimit);
+
+    // event on L1 LRT mint
+    event L1LRTMinted(uint256 _assetAmount, uint256 _lrtAmount);
+
+    // event on failed L1 cross-chain mint
+    event ConversionFailedXLRTtoLRT(address indexed _user, uint256 _assetAmount, uint256 _requiredAmount);
     // enum for message type
     // mint, burn, price update
     // to send cross chain messages
+
     enum MSG_TYPE {
         MINT,
         BURN,
@@ -102,24 +117,24 @@ contract XUltraLRTStorage {
     // total accrued fees
     uint256 public accruedFees;
 
+    // transfer limits
+    uint256 public crossChainTransferLimit;
+
+    // L2 share price feed
+    address public l2SharePriceFeed;
     // gap
-    uint256[100] private __gap;
+    // NB: moved to 99 slot to avoid storage conflict with older deployments
+    uint256[99] private __gap;
 
     // only mailbox modifier
     modifier onlyMailbox() {
-        require(msg.sender == address(mailbox), "XUltraLRT: Invalid sender");
-        _;
-    }
-
-    // only router modifier
-    modifier onlyRouter(uint32 _origin, bytes32 _sender) {
-        require(routerMap[_origin] == _sender, "XUltraLRT: Invalid origin");
+        if (msg.sender != address(mailbox)) revert XErrors.NotMailbox();
         _;
     }
 
     // token deposit allowed modifier
     modifier onlyTokenDepositAllowed() {
-        require(tokenDepositAllowed == 1, "XUltraLRT: Token deposit not allowed");
+        if (tokenDepositAllowed == 0) revert XErrors.TokenDepositNotAllowed();
         _;
     }
 }
