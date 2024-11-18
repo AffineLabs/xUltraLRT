@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.4 <0.9.0;
+pragma solidity =0.8.20;
 
 interface IXERC20 {
     /**
@@ -34,6 +34,11 @@ interface IXERC20 {
     error IXERC20_INVALID_0_VALUE();
 
     /**
+     * @notice Reverts when the limits are too high
+     */
+    error IXERC20_LimitsTooHigh();
+
+    /**
      * @notice Contains the full minting and burning data for a particular bridge
      *
      * @param minterParams The minting parameters for the bridge
@@ -65,6 +70,8 @@ interface IXERC20 {
      * @param _lockbox The address of the lockbox
      */
     function setLockbox(address _lockbox) external;
+
+    function lockbox() external view returns (address);
 
     /**
      * @notice Updates the limits of any bridge
@@ -122,4 +129,16 @@ interface IXERC20 {
      * @param _amount The amount of tokens being burned
      */
     function burn(address _user, uint256 _amount) external;
+
+    /**
+     * @notice cross chain increase transfer limits
+     * @param _limitInc The amount to increase the limit by
+     */
+    function increaseCrossChainTransferLimit(uint256 _limitInc) external;
+
+    /**
+     * @notice cross chain decrease transfer limits
+     * @param _limitDec The amount to decrease the limit by
+     */
+    function decreaseCrossChainTransferLimit(uint256 _limitDec) external;
 }

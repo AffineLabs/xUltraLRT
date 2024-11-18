@@ -7,4 +7,6 @@ interface IUltraLRT {
     function asset() external view returns (address);
     function decimals() external view returns (uint8);
     function convertToAssets(uint256 _shares) external view returns (uint256);
+    function balanceOf(address _account) external view returns (uint256);
+    function deposit(uint256 _amount, address receiver) external returns (uint256);
 }

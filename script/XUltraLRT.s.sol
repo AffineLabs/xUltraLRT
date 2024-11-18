@@ -8,6 +8,8 @@ import {console2} from "forge-std/console2.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {WETH} from "solmate/src/tokens/WETH.sol";
 
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 contract DummyXUltraLRT is XUltraLRT {
     function freeMint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
@@ -55,6 +57,31 @@ contract XUltraLRTScript is Script {
     //////////////////////////////////////////////////////////////////////////////
     /////                       Sepolia                                       ////
     //////////////////////////////////////////////////////////////////////////////
+
+    function runRead() public {
+        address deployer = _start();
+        DummyXUltraLRT vault = DummyXUltraLRT(payable(0x651a6130067c427fE5Dd286882e96466fc9AB667));
+        console2.log("price %s", address(vault.mailbox()));
+    }
+
+    function runUpgradeableSepolia() public {
+        address deployer = _start();
+
+        DummyXUltraLRT vaultImpl = new DummyXUltraLRT();
+
+        address timelock = 0x1C6281dd697d2dD23fA0d0eAa97764b169801852; // sepolia timelock
+
+        bytes memory initData = abi.encodeCall(XUltraLRT.initialize, ("Test", "TST", timelock, timelock));
+
+        console2.logBytes(initData);
+
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(vaultImpl), timelock, initData);
+
+        XUltraLRT vault = XUltraLRT(payable(address(proxy)));
+
+        console2.log("vault %s", address(vault));
+    }
+
     function runSepolia() public {
         address deployer = _start();
         // dep balance
